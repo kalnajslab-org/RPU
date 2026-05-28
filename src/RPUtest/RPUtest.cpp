@@ -1,4 +1,6 @@
 #include "ProfilerHardware.h"
+#include "RPUUtil.h"
+#include "rpu_version.h"
 #include <RS41.h>
 
 // =============================================================================
@@ -101,25 +103,6 @@ String SerialString = "";
 
 ROPCData opcData;
 TDLASData tdlasData;
-
-// =============================================================================
-// readTeensyMAC
-//
-// Reads the 6-byte Ethernet MAC address burned into the Teensy 4.x hardware
-// fuse registers (HW_OCOTP_MAC0 / HW_OCOTP_MAC1).  No external library is
-// required — these registers are always present on the iMX RT1062.
-//
-// Byte order matches the standard Teensy teensyMAC() convention:
-//   mac[0..1]  ← HW_OCOTP_MAC1  (most-significant bytes)
-//   mac[2..5]  ← HW_OCOTP_MAC0  (least-significant bytes)
-// =============================================================================
-static void readTeensyMAC(uint8_t mac[6])
-{
-  for (uint8_t i = 0; i < 2; i++)
-    mac[i] = (HW_OCOTP_MAC1 >> ((1 - i) * 8)) & 0xFF;
-  for (uint8_t i = 0; i < 4; i++)
-    mac[i + 2] = (HW_OCOTP_MAC0 >> ((3 - i) * 8)) & 0xFF;
-}
 
 
 // =============================================================================
@@ -579,6 +562,8 @@ void setup()
   digitalWrite(PUMP_PWM,       LOW);
 
   Serial.begin(115200);
+  delay(2000); // Allow time to open serial monitor before banner
+  Serial.println("RPUtest " + getRPUIdentifier(RPU_VERSION));
 
   GPS_SERIAL.begin(9600);
   GPS_SERIAL.addMemoryForRead(GPS_Serial_Buffer, sizeof(GPS_Serial_Buffer));
