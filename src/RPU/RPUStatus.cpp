@@ -38,6 +38,16 @@ uint32_t getConsoleStatusInterval()
 // ---------------------------------------------------------------------------
 // Reporting functions
 // ---------------------------------------------------------------------------
+static const char* stateStr(RPUState state)
+{
+  switch (state)
+  {
+    case RPUState::STANDBY: return "STANDBY";
+    case RPUState::MEASURE: return "MEASURE";
+    case RPUState::ERROR:   return "ERROR";
+    default:                return "UNKNOWN";
+  }
+}
 void rpuReport(
     uint16_t board_id, const char* ver, RPUState state,
     float vbat, float bat_t, float chg_i, float pcb_t,
@@ -61,7 +71,7 @@ void rpuReport(
   int n = snprintf(buf, sizeof(buf),
     "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"bat_v\":%.2f,\"bat_t\":%.2f,\"chg_i\":%.3f,\"pcb_t\":%.2f,\"bat_pct\":%d,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
     board_id, ver,
-    state == RPUState::STANDBY ? "STANDBY" : "MEASURE",
+    stateStr(state),
     vbat, bat_t, chg_i, pcb_t, heater_duty,
     gps.location.lat(), gps.location.lng(),
     gps.altitude.meters(), gps.satellites.value());
@@ -90,7 +100,7 @@ void consoleReport(
   first_call = false;
   console_report_timer = 0;
   Serial.printf("state=%s elapsed=%.1fs bat_v=%.2fV vin=%.2fV bat_heater=%s\n",
-    state == RPUState::STANDBY ? "STANDBY" : "MEASURE",
+    stateStr(state),
     elapsed_s, vbat, vin,
     heater_on ? "ON" : "OFF");
 }

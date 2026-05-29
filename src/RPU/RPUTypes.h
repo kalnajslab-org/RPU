@@ -8,7 +8,7 @@
 #pragma once
 #include <Arduino.h>
 
-enum class RPUState { STANDBY, MEASURE };
+enum class RPUState { STANDBY, MEASURE, ERROR };
 
 inline void enterStandby(RPUState& state)
 {
@@ -20,4 +20,10 @@ inline void enterMeasure(RPUState& state)
 {
   state = RPUState::MEASURE;
   Serial.println("Entering MEASURE");
+}
+
+inline void enterError(RPUState& state)
+{
+  state = RPUState::ERROR;
+  Serial.println("ERROR: entering ERROR state");
 }

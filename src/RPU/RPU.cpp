@@ -187,6 +187,10 @@ static void tickMeasure()
 {
 }
 
+static void tickError()
+{
+}
+
 // =============================================================================
 // setup
 // =============================================================================
@@ -303,6 +307,10 @@ void loop()
   float vbat = readVBat();
   float vin  = readVin();
 
+  //----------------------------------------------------
+  // Activities that run in all states
+  //----------------------------------------------------
+
   // Check for incoming commands from RATCHuTS over the docking connector
   dockComms();
 
@@ -314,11 +322,27 @@ void loop()
             heater_on_ticks, heater_total_ticks,
             profiler_gps);
 
+  
+  // The state can be changed from the console
   consoleRead(rpu_state);
 
+  //----------------------------------------------------
+  // State machine tick
+  //----------------------------------------------------
   switch (rpu_state)
   {
-    case RPUState::STANDBY: tickStandby(); break;
-    case RPUState::MEASURE: tickMeasure(); break;
+    case RPUState::STANDBY:
+      tickStandby();
+      break;
+    case RPUState::MEASURE:
+      tickMeasure();
+      break;
+    case RPUState::ERROR:
+      tickError();
+      break;
+    default:
+      Serial.println("ERROR: unknown RPU state — entering ERROR");
+      enterError(rpu_state);
+      break;
   }
 }
