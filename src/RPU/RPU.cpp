@@ -4,7 +4,9 @@
 #include <RS41.h>
 #include <Watchdog_t4.h>
 
-#define STATUS_PRINT_INTERVAL_MS 1000
+#define STATUS_PRINT_INTERVAL_S   1UL
+#define V_CRIT_BATT               10.0f          // [V] disable heater below this battery voltage
+#define STATUS_TX_INTERVAL_S      60UL
 
 // ---------------------------------------------------------------------------
 // Global objects
@@ -41,85 +43,112 @@ WDT_T4<WDT1> wdt;
 // ---------------------------------------------------------------------------
 // Timers
 // ---------------------------------------------------------------------------
-elapsedMillis status_timer;
+elapsedSeconds status_timer;
+elapsedSeconds status_tx_timer;
+
+// ---------------------------------------------------------------------------
+// Telemetry state
+// ---------------------------------------------------------------------------
+static float BatteryTemp = 0.0f;
+static float PCBTemp     = 0.0f;
 
 // ---------------------------------------------------------------------------
 // State machine
 // ---------------------------------------------------------------------------
-enum class RPUState    { STANDBY, MEASURE };
-enum class StandbyState { IDLE, WAITING_FOR_COMMAND };
-enum class MeasureState { INIT, SAMPLING, LOGGING };
+enum class RPUState { STANDBY, MEASURE };
 
-static RPUState     rpu_state     = RPUState::STANDBY;
-static StandbyState standby_state = StandbyState::IDLE;
-static MeasureState measure_state = MeasureState::INIT;
+static RPUState rpu_state = RPUState::STANDBY;
 
-// --- STANDBY substates ---
-static void enterStandbyIdle()
-{
-  standby_state = StandbyState::IDLE;
-  Serial.println("Standby: IDLE");
-}
-
-static void tickStandbyIdle()
-{
-}
-
-static void enterStandbyWaiting()
-{
-  standby_state = StandbyState::WAITING_FOR_COMMAND;
-  Serial.println("Standby: WAITING_FOR_COMMAND");
-}
-
-static void tickStandbyWaiting()
-{
-}
-
-// --- MEASURE substates ---
-static void enterMeasureInit()
-{
-  measure_state = MeasureState::INIT;
-  Serial.println("Measure: INIT");
-}
-
-static void tickMeasureInit()
-{
-}
-
-static void enterMeasureSampling()
-{
-  measure_state = MeasureState::SAMPLING;
-  Serial.println("Measure: SAMPLING");
-}
-
-static void tickMeasureSampling()
-{
-}
-
-static void enterMeasureLogging()
-{
-  measure_state = MeasureState::LOGGING;
-  Serial.println("Measure: LOGGING");
-}
-
-static void tickMeasureLogging()
-{
-}
-
-// --- Top-level states ---
 static void enterStandby()
 {
   rpu_state = RPUState::STANDBY;
   Serial.println("State: STANDBY");
-  enterStandbyIdle();
+}
+
+static float readVin()
+{
+  long acc = 0;
+  for (int i = 0; i < 32; i++) acc += analogRead(VIN_VMON);
+  return (acc / (4095.0f * 32)) * 3.3f * 11.7f / 1.37f;
+}
+
+static float readVBat()
+{
+  long acc = 0;
+  for (int i = 0; i < 32; i++) acc += analogRead(BAT_VMON);
+  return (acc / (4095.0f * 32)) * 3.3f * 12.49f / 2.49f;
+}
+
+static float readChargeI()
+{
+  long acc = 0;
+  for (int i = 0; i < 32; i++) acc += analogRead(CHARGE_IMON);
+  return (acc / (4095.0f * 32)) * 3.3f;
+}
+
+static void sendStandbyStatus()
+{
+  char buf[200];
+  int n = snprintf(buf, sizeof(buf),
+    "{\"id\":\"%04X\",\"ver\":\"%s\",\"vbat\":%.2f,\"bat_t\":%.2f,\"chg_i\":%.3f,\"pcb_t\":%.2f,\"heat\":%d,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
+    loraSerialNumber,
+    RPU_VERSION,
+    readVBat(),
+    BatteryTemp,
+    readChargeI(),
+    PCBTemp,
+    digitalRead(BATTERY_HEATER) ? 100 : 0,
+    profiler_gps.location.lat(),
+    profiler_gps.location.lng(),
+    profiler_gps.altitude.meters(),
+    profiler_gps.satellites.value());
+
+  if (n >= (int)sizeof(buf))
+    Serial.println("WARNING: standby status JSON truncated");
+
+  GONDOLA_SERIAL.println(buf);
+
+  LoRa.beginPacket();
+  LoRa.print(buf);
+  LoRa.endPacket();
+
+  Serial.print("Standby TX: ");
+  Serial.println(buf);
+}
+
+static void batteryHeater()
+{
+  float vin  = readVin();
+  float vbat = readVBat();
+  bool enable = (vin > 13.0f) && (vbat >= V_CRIT_BATT);
+  digitalWrite(BATTERY_HEATER, enable ? HIGH : LOW);
+}
+
+static void powerdownSensors()
+{
+  digitalWrite(OPC_ENABLE,    LOW);
+  digitalWrite(TSEN_ENABLE,   LOW);
+  digitalWrite(TDLAS_ENABLE,  LOW);
+  digitalWrite(RS41_ENABLE,   LOW);
+  digitalWrite(BATTERY_HEATER, LOW);
+  analogWrite(PUMP_PWM,       0);
 }
 
 static void tickStandby()
 {
-  switch (standby_state)
+  while (GPS_SERIAL.available() > 0)
+    profiler_gps.encode(GPS_SERIAL.read());
+
+  TempBattery.ManageState(BatteryTemp);
+  TempPCB.ManageState(PCBTemp);
+
+  powerdownSensors();
+  batteryHeater();
+
+  if (status_tx_timer >= STATUS_TX_INTERVAL_S)
   {
-    case StandbyState::IDLE:                tickStandbyIdle();    break;
-    case StandbyState::WAITING_FOR_COMMAND: tickStandbyWaiting(); break;
+    status_tx_timer = 0;
+    sendStandbyStatus();
   }
 }
 
@@ -127,27 +156,23 @@ static void enterMeasure()
 {
   rpu_state = RPUState::MEASURE;
   Serial.println("State: MEASURE");
-  enterMeasureInit();
 }
 
 static void tickMeasure()
 {
-  switch (measure_state)
-  {
-    case MeasureState::INIT:    tickMeasureInit();    break;
-    case MeasureState::SAMPLING: tickMeasureSampling(); break;
-    case MeasureState::LOGGING:  tickMeasureLogging();  break;
-  }
 }
 
 static void printStatus()
 {
-  if (status_timer < STATUS_PRINT_INTERVAL_MS)
+  if (status_timer < STATUS_PRINT_INTERVAL_S)
     return;
   status_timer = 0;
-  Serial.printf("Status: state=%s elapsed=%.3fs\n",
+  Serial.printf("Status: state=%s elapsed=%.3fs vbat=%.2fV vin=%.2fV bat_heater=%s\n",
     rpu_state == RPUState::STANDBY ? "STANDBY" : "MEASURE",
-    millis() / 1000.0f);
+    millis() / 1000.0f,
+    readVBat(),
+    readVin(),
+    digitalRead(BATTERY_HEATER) ? "ON" : "OFF");
 }
 
 // =============================================================================
