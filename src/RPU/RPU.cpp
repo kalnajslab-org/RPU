@@ -3,6 +3,7 @@
 #include <Watchdog_t4.h>
 
 #include "ProfilerHardware.h"
+#include <EEPROM.h>
 #include "RPUConfig.h"
 #include "RPUComm.h"
 #include "RPUUtil.h"
@@ -232,9 +233,22 @@ void setup()
 
   // Check for watchdog reset before initializing the WDT, as wdt.begin()
   // clears the reset-cause register.
-  if (wdt.expired()) {
-    Serial.println("WARNING: previous run was reset by the watchdog — the loop"
-                   " stalled for > 10 s without calling wdt.feed().");
+  {
+    bool wdt_fired = wdt.expired();
+    uint32_t wdt_count = 0;
+    EEPROM.get(CFG_EEPROM_WDT_COUNT_ADDR, wdt_count);
+    if (wdt_count == 0xFFFFFFFF) { 
+      // uninitialized EEPROM
+      wdt_count = 0; 
+    } 
+    if (wdt_fired) {
+      wdt_count++;
+      EEPROM.put(CFG_EEPROM_WDT_COUNT_ADDR, wdt_count);
+      Serial.println("WARNING: previous run was reset by the watchdog — the loop"
+                     " stalled for > 10 s without calling wdt.feed().");
+    }
+    setWDTCount(wdt_count);
+    Serial.printf("WDT reset count: %lu\n", wdt_count);
   }
 
   WDT_timings_t wdt_config;

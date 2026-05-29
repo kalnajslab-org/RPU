@@ -1,6 +1,8 @@
 #include "RPUConsole.h"
 #include "RPUStatus.h"
+#include "RPUConfig.h"
 #include <Arduino.h>
+#include <EEPROM.h>
 #include <etl/string.h>
 #include <etl/vector.h>
 
@@ -34,17 +36,23 @@ void consoleRead(RPUState& rpu_state)
 
       if (tokens.empty()) { return; }
 
-      for (uint8_t i = 0; i < tokens.size(); i++) {
-        Serial.printf("  token[%u]: %s\n", i, tokens[i].c_str());
-      }
-
       if (tokens[0] == "h") {
         Serial.println("Commands:");
         Serial.println("  h        - help");
+        Serial.println("  b        - reboot");
         Serial.println("  m        - enter MEASURE state");
         Serial.println("  s        - enter STANDBY state");
+        Serial.println("  w        - reset WDT trigger count in EEPROM to 0");
         Serial.println("  c <s>    - set console status print interval [s]");
         Serial.println("  r <s>    - set RPU status report interval [s]");
+      } else if (tokens[0] == "b") {
+        Serial.println("Rebooting via WDT");
+        delay(10000);
+      } else if (tokens[0] == "w") {
+        uint32_t zero = 0;
+        EEPROM.put(CFG_EEPROM_WDT_COUNT_ADDR, zero);
+        setWDTCount(0);
+        Serial.println("WDT count reset to 0");
       } else if (tokens[0] == "m") {
         enterMeasure(rpu_state);
       } else if (tokens[0] == "s") {

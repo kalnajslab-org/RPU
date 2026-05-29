@@ -9,12 +9,18 @@
 // ---------------------------------------------------------------------------
 static elapsedSeconds rpu_report_timer;
 static elapsedSeconds console_report_timer;
+static uint32_t       wdt_count = 0;
 static uint32_t rpu_report_interval_s      = CFG_RPU_REPORT_INTERVAL_S;
 static uint32_t console_report_interval_s  = CFG_CONSOLE_REPORT_INTERVAL_S;
 
 // ---------------------------------------------------------------------------
 // Interval setters / getters
 // ---------------------------------------------------------------------------
+void setWDTCount(uint32_t count)
+{
+  wdt_count = count;
+}
+
 void setRPUReportInterval(uint32_t seconds)
 {
   rpu_report_interval_s = seconds;
@@ -69,9 +75,10 @@ void rpuReport(
 
   char buf[200];
   int n = snprintf(buf, sizeof(buf),
-    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"bat_v\":%.2f,\"bat_t\":%.2f,\"chg_i\":%.3f,\"pcb_t\":%.2f,\"bat_pct\":%d,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
+    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"wdt_n\":%lu,\"bat_v\":%.2f,\"bat_t\":%.2f,\"chg_i\":%.3f,\"pcb_t\":%.2f,\"bat_pct\":%d,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
     board_id, ver,
     stateStr(state),
+    wdt_count,
     vbat, bat_t, chg_i, pcb_t, heater_duty,
     gps.location.lat(), gps.location.lng(),
     gps.altitude.meters(), gps.satellites.value());

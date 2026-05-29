@@ -28,6 +28,11 @@ constexpr uint32_t CFG_RPU_REPORT_INTERVAL_S     = 30UL * 60UL; // [s] LoRa/dock
 constexpr uint32_t CFG_CONSOLE_REPORT_INTERVAL_S = 10UL;        // [s] USB serial status print
 
 // ---------------------------------------------------------------------------
+// EEPROM layout
+// ---------------------------------------------------------------------------
+constexpr int CFG_EEPROM_WDT_COUNT_ADDR = 0;  // uint32_t: lifetime watchdog reset count
+
+// ---------------------------------------------------------------------------
 // MEASURE defaults
 // ---------------------------------------------------------------------------
 constexpr int32_t  CFG_MEASURE_DURATION   = 0;            // [s] 0 = run until commanded to STANDBY

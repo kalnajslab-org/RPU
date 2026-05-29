@@ -17,6 +17,10 @@
 #include <TinyGPS++.h>
 #include "RPUTypes.h"
 
+// Call once in setup() before wdt.begin() to record whether the last reset
+// was caused by the watchdog.  Included in every rpuReport() JSON payload.
+void setWDTCount(uint32_t count);
+
 // ---------------------------------------------------------------------------
 // Interval setters / getters
 // ---------------------------------------------------------------------------
