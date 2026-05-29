@@ -572,7 +572,7 @@ void setup()
   TSEN_SERIAL.begin(9600);
   TDLAS_SERIAL.begin(115200);
   TDLAS_SERIAL.addMemoryForRead(TDLAS_Serial_Buffer, sizeof(TDLAS_Serial_Buffer));
-  GONDOLA_SERIAL.begin(115200);
+  DOCK_SERIAL.begin(115200);
 
   analogReadResolution(12);
   analogReadAveraging(32);
@@ -682,9 +682,9 @@ void loop()
 
   // --- Gondola serial loopback test ------------------------------------------
   Serial.println("Testing Gondola Serial");
-  GONDOLA_SERIAL.println("Passed...");
-  while (GONDOLA_SERIAL.available() > 0)
-    Serial.print((char)GONDOLA_SERIAL.read());
+  DOCK_SERIAL.println("Passed...");
+  while (DOCK_SERIAL.available() > 0)
+    Serial.print((char)DOCK_SERIAL.read());
 
   // --- OPC -------------------------------------------------------------------
   while (OPC_SERIAL.available())
