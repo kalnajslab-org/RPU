@@ -54,6 +54,7 @@ This header file defines the hardware interface for the RACHuTS profiler board b
 #define PUMP_PWM 9 //Pump power
 
 /*Serial Ports*/
+#define DEBUG_SERIAL   Serial
 #define OPC_SERIAL Serial2
 #define TSEN_SERIAL Serial5
 #define TDLAS_SERIAL Serial4
