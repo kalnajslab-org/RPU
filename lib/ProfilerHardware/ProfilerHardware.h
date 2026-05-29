@@ -59,7 +59,7 @@ This header file defines the hardware interface for the RACHuTS profiler board b
 #define TSEN_SERIAL Serial5
 #define TDLAS_SERIAL Serial4
 #define RS41_SERIAL Serial6
-#define GONDOLA_SERIAL Serial1
+#define DOCK_SERIAL Serial1
 
 /* Serial Port Pins*/
 #define TDLAS_TX_PIN   17

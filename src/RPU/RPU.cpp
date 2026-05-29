@@ -1,15 +1,36 @@
-#include "ProfilerHardware.h"
-#include "RPUUtil.h"
-#include "rpu_version.h"
+#include <TimeLib.h>
 #include <RS41.h>
 #include <Watchdog_t4.h>
 
-#define STATUS_PRINT_INTERVAL_S   1UL
-#define V_CRIT_BATT               10.0f          // [V] disable heater below this battery voltage
-#define STATUS_TX_INTERVAL_S      60UL
+#include "ProfilerHardware.h"
+#include "RPUConfig.h"
+#include "RPUComm.h"
+#include "RPUUtil.h"
+#include "rpu_version.h"
+#include "RPUTypes.h"
+#include "RPUAnalog.h"
+#include "RPUBattery.h"
+#include "RPUStatus.h"
+#include "RPUConsole.h"
 
 // ---------------------------------------------------------------------------
-// Global objects
+// Configurable parameters (settable via command)
+// ---------------------------------------------------------------------------
+static float    V_CRIT_BATT               = CFG_V_CRIT_BATT;
+static float    V_LOW_BATT                = CFG_V_LOW_BATT;
+static float    Battery_T_Setpoint        = CFG_BATTERY_T_SETPOINT;
+
+// ---------------------------------------------------------------------------
+// MEASURE parameters (set by RPU_GO_MEASURE command)
+// ---------------------------------------------------------------------------
+static int32_t MeasureDuration = CFG_MEASURE_DURATION;
+static int32_t MeasureRate     = CFG_MEASURE_RATE;
+static int8_t  OPC_Power       = 0;
+static int8_t  TDLAS_Power     = 0;
+static int8_t  TSEN_Power      = 0;
+
+// ---------------------------------------------------------------------------
+// Device objects
 // ---------------------------------------------------------------------------
 TinyGPSPlus profiler_gps;
 TSensor1Bus TempBattery(ONE_WIRE_1);
@@ -17,6 +38,8 @@ TSensor1Bus TempPump(ONE_WIRE_2);
 TSensor1Bus TempPCB(ONE_WIRE_3);
 
 RS41 rs41(RS41_SERIAL, RS41_ENABLE);
+
+RPUComm rpucomm(&Serial1);
 
 // ---------------------------------------------------------------------------
 // SD card
@@ -33,146 +56,135 @@ uint8_t TDLAS_Serial_Buffer[1028];
 // ---------------------------------------------------------------------------
 // LoRa
 // ---------------------------------------------------------------------------
-static uint16_t loraSerialNumber = 0;
+static uint16_t rpu_id = 0;
 
 // ---------------------------------------------------------------------------
 // Watchdog
 // ---------------------------------------------------------------------------
 WDT_T4<WDT1> wdt;
 
-// ---------------------------------------------------------------------------
-// Timers
-// ---------------------------------------------------------------------------
-elapsedSeconds status_timer;
-elapsedSeconds status_tx_timer;
 
 // ---------------------------------------------------------------------------
-// Telemetry state
+// Battery and heater state
 // ---------------------------------------------------------------------------
-static float BatteryTemp = 0.0f;
-static float PCBTemp     = 0.0f;
+static float    BatteryTemp        = 0.0f;
+static float    PCBTemp            = 0.0f;
+static float    PumpTemp           = 0.0f;
+static uint32_t heater_on_ticks    = 0;
+static uint32_t heater_total_ticks = 0;
 
 // ---------------------------------------------------------------------------
 // State machine
 // ---------------------------------------------------------------------------
-enum class RPUState { STANDBY, MEASURE };
-
 static RPUState rpu_state = RPUState::STANDBY;
 
-static void enterStandby()
+// ---------------------------------------------------------------------------
+// Communications
+// ---------------------------------------------------------------------------
+static void sendTM()
 {
-  rpu_state = RPUState::STANDBY;
-  Serial.println("State: STANDBY");
 }
 
-static float readVin()
+static bool dockComms()
 {
-  long acc = 0;
-  for (int i = 0; i < 32; i++) acc += analogRead(VIN_VMON);
-  return (acc / (4095.0f * 32)) * 3.3f * 11.7f / 1.37f;
-}
+  int8_t   tmp1;
+  uint32_t tmp3;
 
-static float readVBat()
-{
-  long acc = 0;
-  for (int i = 0; i < 32; i++) acc += analogRead(BAT_VMON);
-  return (acc / (4095.0f * 32)) * 3.3f * 12.49f / 2.49f;
-}
+  switch (rpucomm.RX()) {
+    case ASCII_MESSAGE:
+      switch (rpucomm.ascii_rx.msg_id) {
+        case RPU_SEND_STATUS:
+          tmp3 = now();
+          tmp1 = rpucomm.TX_Status(tmp3, readVBat(), readChargeI(),
+                                   BatteryTemp, PCBTemp,
+                                   digitalRead(BATTERY_HEATER));
+          DEBUG_SERIAL.println("Received RPU_SEND_STATUS");
+          return false;
 
-static float readChargeI()
-{
-  long acc = 0;
-  for (int i = 0; i < 32; i++) acc += analogRead(CHARGE_IMON);
-  return (acc / (4095.0f * 32)) * 3.3f;
-}
+        case RPU_SEND_RECORDS:
+          DEBUG_SERIAL.println("Received RPU_SEND_RECORDS");
+          sendTM();
+          return false;
 
-static void sendStandbyStatus()
-{
-  char buf[200];
-  int n = snprintf(buf, sizeof(buf),
-    "{\"id\":\"%04X\",\"ver\":\"%s\",\"vbat\":%.2f,\"bat_t\":%.2f,\"chg_i\":%.3f,\"pcb_t\":%.2f,\"heat\":%d,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
-    loraSerialNumber,
-    RPU_VERSION,
-    readVBat(),
-    BatteryTemp,
-    readChargeI(),
-    PCBTemp,
-    digitalRead(BATTERY_HEATER) ? 100 : 0,
-    profiler_gps.location.lat(),
-    profiler_gps.location.lng(),
-    profiler_gps.altitude.meters(),
-    profiler_gps.satellites.value());
+        case RPU_GO_MEASURE:
+          tmp1 = rpucomm.RX_GoMeasure(&MeasureDuration, &MeasureRate,
+                                      &OPC_Power, &TDLAS_Power, &TSEN_Power);
+          rpucomm.TX_Ack(RPU_GO_MEASURE, tmp1);
+          if (tmp1) {
+            DEBUG_SERIAL.println("Received RPU_GO_MEASURE");
+            enterMeasure(rpu_state);
+            return true;
+          }
+          return false;
 
-  if (n >= (int)sizeof(buf))
-    Serial.println("WARNING: standby status JSON truncated");
+        case RPU_GO_STANDBY:
+          rpucomm.TX_Ack(RPU_GO_STANDBY, true);
+          DEBUG_SERIAL.println("Received RPU_GO_STANDBY");
+          enterStandby(rpu_state);
+          return true;
 
-  GONDOLA_SERIAL.println(buf);
+        case RPU_SET_BATT_T:
+          tmp1 = rpucomm.Get_float(&Battery_T_Setpoint);
+          rpucomm.TX_Ack(RPU_SET_BATT_T, tmp1);
+          DEBUG_SERIAL.printf("[nominal] BATT_T_SET=%.2f\n", Battery_T_Setpoint);
+          return false;
 
-  LoRa.beginPacket();
-  LoRa.print(buf);
-  LoRa.endPacket();
+        case RPU_SET_V_LOW_BATT:
+          tmp1 = rpucomm.Get_float(&V_LOW_BATT);
+          rpucomm.TX_Ack(RPU_SET_V_LOW_BATT, tmp1);
+          DEBUG_SERIAL.printf("[nominal] V_LOW_BATT=%.2f\n", V_LOW_BATT);
+          return false;
 
-  Serial.print("Standby TX: ");
-  Serial.println(buf);
-}
+        case RPU_SET_V_CRIT_BATT:
+          tmp1 = rpucomm.Get_float(&V_CRIT_BATT);
+          rpucomm.TX_Ack(RPU_SET_V_CRIT_BATT, tmp1);
+          DEBUG_SERIAL.printf("[nominal] V_CRIT_BATT=%.2f\n", V_CRIT_BATT);
+          return false;
 
-static void batteryHeater()
-{
-  float vin  = readVin();
-  float vbat = readVBat();
-  bool enable = (vin > 13.0f) && (vbat >= V_CRIT_BATT);
-  digitalWrite(BATTERY_HEATER, enable ? HIGH : LOW);
-}
+        case RPU_SET_STATUS_RATE: {
+          uint32_t rate = getRPUReportInterval();
+          tmp1 = rpucomm.Get_uint32(&rate);
+          if (tmp1) { setRPUReportInterval(rate); }
+          rpucomm.TX_Ack(RPU_SET_STATUS_RATE, tmp1);
+          DEBUG_SERIAL.printf("[nominal] STATUS_RATE=%lu\n", getRPUReportInterval());
+          return false;
+        }
 
-static void powerdownSensors()
-{
-  digitalWrite(OPC_ENABLE,    LOW);
-  digitalWrite(TSEN_ENABLE,   LOW);
-  digitalWrite(TDLAS_ENABLE,  LOW);
-  digitalWrite(RS41_ENABLE,   LOW);
-  digitalWrite(BATTERY_HEATER, LOW);
-  analogWrite(PUMP_PWM,       0);
+        default:
+          rpucomm.TX_Ack(rpucomm.ascii_rx.msg_id, false);
+          return false;
+      }
+
+    case ACK_MESSAGE:
+      DEBUG_SERIAL.print("ACK/NAK for msg: ");
+      DEBUG_SERIAL.println(rpucomm.ack_id);
+      rpucomm.ack_value ? DEBUG_SERIAL.println("ACK") : DEBUG_SERIAL.println("NAK");
+      return false;
+
+    case NO_MESSAGE:
+    default:
+      return false;
+  }
 }
 
 static void tickStandby()
 {
-  while (GPS_SERIAL.available() > 0)
+  while (GPS_SERIAL.available() > 0) {
     profiler_gps.encode(GPS_SERIAL.read());
+  }
 
-  TempBattery.ManageState(BatteryTemp);
-  TempPCB.ManageState(PCBTemp);
+  float vin  = readVin();
+  float vbat = readVBat();
 
   powerdownSensors();
-  batteryHeater();
-
-  if (status_tx_timer >= STATUS_TX_INTERVAL_S)
-  {
-    status_tx_timer = 0;
-    sendStandbyStatus();
-  }
-}
-
-static void enterMeasure()
-{
-  rpu_state = RPUState::MEASURE;
-  Serial.println("State: MEASURE");
+  updateTemperatures(TempBattery, TempPCB, BatteryTemp, PCBTemp);
+  manageHeater(BatteryTemp, Battery_T_Setpoint,
+               vin, vbat, V_CRIT_BATT,
+               heater_on_ticks, heater_total_ticks);
 }
 
 static void tickMeasure()
 {
-}
-
-static void printStatus()
-{
-  if (status_timer < STATUS_PRINT_INTERVAL_S)
-    return;
-  status_timer = 0;
-  Serial.printf("Status: state=%s elapsed=%.3fs vbat=%.2fV vin=%.2fV bat_heater=%s\n",
-    rpu_state == RPUState::STANDBY ? "STANDBY" : "MEASURE",
-    millis() / 1000.0f,
-    readVBat(),
-    readVin(),
-    digitalRead(BATTERY_HEATER) ? "ON" : "OFF");
 }
 
 // =============================================================================
@@ -204,14 +216,26 @@ void setup()
   digitalWrite(PUMP_PWM,       LOW);
 
   Serial.begin(115200);
-  delay(2000); // Allow time to open serial monitor before banner
-  Serial.println("RPU " + getRPUIdentifier(RPU_VERSION));
+
+  // Trigger STARTUP conversion on all temperature sensors (750 ms each).
+  // Three sensors total ~2.25 s, providing a convenient delay for the
+  // developer to connect a serial monitor before the banner is printed.
+  TempPCB.ManageState(PCBTemp);
+  TempPump.ManageState(PumpTemp);
+  TempBattery.ManageState(BatteryTemp);
+
+  Serial.println("RATCHuTS Profiling Unit " + getRPUIdentifier(RPU_VERSION));
+
+  // Check for watchdog reset before initializing the WDT, as wdt.begin()
+  // clears the reset-cause register.
+  if (wdt.expired()) {
+    Serial.println("WARNING: previous run was reset by the watchdog — the loop"
+                   " stalled for > 10 s without calling wdt.feed().");
+  }
 
   WDT_timings_t wdt_config;
   wdt_config.timeout = 10; // seconds
   wdt.begin(wdt_config);
-  if (wdt.expired())
-    Serial.println("Reset caused by watchdog");
 
   GPS_SERIAL.begin(9600);
   GPS_SERIAL.addMemoryForRead(GPS_Serial_Buffer, sizeof(GPS_Serial_Buffer));
@@ -220,27 +244,27 @@ void setup()
   TSEN_SERIAL.begin(9600);
   TDLAS_SERIAL.begin(115200);
   TDLAS_SERIAL.addMemoryForRead(TDLAS_Serial_Buffer, sizeof(TDLAS_Serial_Buffer));
-  GONDOLA_SERIAL.begin(115200);
+  DOCK_SERIAL.begin(115200);
 
   analogReadResolution(12);
   analogReadAveraging(32);
 
-  // Derive LoRa ID from last two bytes of the Teensy MAC address
   {
     uint8_t mac[6];
     readTeensyMAC(mac);
-    loraSerialNumber = ((uint16_t)mac[4] << 8) | mac[5];
+    rpu_id = ((uint16_t)mac[4] << 8) | mac[5];
     Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    Serial.printf("LoRa ID: %04X\n", loraSerialNumber);
+    Serial.printf("LoRa ID: %04X\n", rpu_id);
   }
 
   rs41.init();
 
-  if (!LoRa.begin(868E6))
+  if (!LoRa.begin(868E6)) {
     Serial.println("Starting LoRa failed!");
-  else
+  } else {
     Serial.println("LoRa initialization complete");
+  }
 
   LoRa.setSpreadingFactor(LORA_SF);
   LoRa.setSignalBandwidth(LORA_BW);
@@ -248,23 +272,25 @@ void setup()
   delay(1000);
 
   TempPCB.PrintSensorAddress();
-  if (!TempPCB.ValidateAddrCRC())
+  if (!TempPCB.ValidateAddrCRC()) {
     Serial.println("PCB Temp sensor CRC bad — check sensor connection");
+  }
 
   TempPump.PrintSensorAddress();
-  if (!TempPump.ValidateAddrCRC())
+  if (!TempPump.ValidateAddrCRC()) {
     Serial.println("Pump Temp sensor CRC bad — check sensor connection");
+  }
 
   TempBattery.PrintSensorAddress();
-  if (!TempBattery.ValidateAddrCRC())
+  if (!TempBattery.ValidateAddrCRC()) {
     Serial.println("Battery Temp sensor CRC bad — check sensor connection");
+  }
 
   Serial.println(rs41.banner());
   Serial.println("RS41 meta data: " + rs41.meta_data());
   Serial.println(rs41.sensor_data_var_names);
 
-  analogWrite(PUMP_PWM,        0);   // Reset FlexPWM peripheral to zero duty cycle
-
+  analogWrite(PUMP_PWM, 0); // Reset FlexPWM to zero duty cycle — ensures pump is off
 }
 
 // =============================================================================
@@ -274,7 +300,21 @@ void loop()
 {
   wdt.feed();
 
-  printStatus();
+  float vbat = readVBat();
+  float vin  = readVin();
+
+  // Check for incoming commands from RATCHuTS over the docking connector
+  dockComms();
+
+  consoleReport(rpu_state, millis() / 1000.0f,
+                vbat, vin, digitalRead(BATTERY_HEATER));
+
+  rpuReport(rpu_id, RPU_VERSION, rpu_state,
+            vbat, BatteryTemp, readChargeI(), PCBTemp,
+            heater_on_ticks, heater_total_ticks,
+            profiler_gps);
+
+  consoleRead(rpu_state);
 
   switch (rpu_state)
   {
