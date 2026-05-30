@@ -56,7 +56,7 @@ static const char* stateStr(RPUState state)
 }
 void rpuReport(
     uint16_t board_id, const char* ver, RPUState state,
-    float vbat, float bat_t, float chg_i, float pcb_t,
+    float vin, float vbat, float bat_t, float chg_i, float pcb_t,
     uint32_t& on_ticks, uint32_t& total_ticks,
     TinyGPSPlus& gps)
 {
@@ -75,11 +75,11 @@ void rpuReport(
 
   char buf[200];
   int n = snprintf(buf, sizeof(buf),
-    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"wdt_n\":%lu,\"bat_v\":%.2f,\"bat_t\":%.2f,\"chg_i\":%.3f,\"pcb_t\":%.2f,\"bat_pct\":%d,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
+    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"wdt_n\":%lu,\"vin\":%.2f,\"bat_v\":%.2f,\"bat_duty\":%d,\"chg_i\":%.1f,\"bat_t\":%.1f,\"pcb_t\":%.1f,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
     board_id, ver,
     stateStr(state),
     wdt_count,
-    vbat, bat_t, chg_i, pcb_t, heater_duty,
+    vin, vbat, heater_duty, chg_i, bat_t, pcb_t,
     gps.location.lat(), gps.location.lng(),
     gps.altitude.meters(), gps.satellites.value());
 

@@ -332,7 +332,7 @@ void loop()
                 vbat, vin, digitalRead(BATTERY_HEATER));
 
   rpuReport(rpu_id, RPU_VERSION, rpu_state,
-            vbat, BatteryTemp, readChargeI(), PCBTemp,
+            vin, vbat, BatteryTemp, readChargeI(), PCBTemp,
             heater_on_ticks, heater_total_ticks,
             profiler_gps);
 

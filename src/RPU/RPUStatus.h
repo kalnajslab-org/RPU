@@ -34,7 +34,7 @@ uint32_t getConsoleStatusInterval();
 // ---------------------------------------------------------------------------
 void rpuReport(
     uint16_t board_id, const char* ver, RPUState state,
-    float vbat, float bat_t, float chg_i, float pcb_t,
+    float vin, float vbat, float bat_t, float chg_i, float pcb_t,
     uint32_t& on_ticks, uint32_t& total_ticks,
     TinyGPSPlus& gps);
 
