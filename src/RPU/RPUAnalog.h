@@ -10,3 +10,6 @@
 float readVin();
 float readVBat();
 float readChargeI();
+float readVmon5V();
+float readIPump();
+void  readSwitchCurrents(float& opc_i, float& tsen_i, float& tdlas_i, float& bat_heater_i);

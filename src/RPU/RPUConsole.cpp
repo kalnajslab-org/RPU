@@ -1,12 +1,13 @@
 #include "RPUConsole.h"
 #include "RPUStatus.h"
 #include "RPUConfig.h"
+#include "ProfilerHardware.h"
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <etl/string.h>
 #include <etl/vector.h>
 
-void consoleRead(RPUState& rpu_state)
+void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled)
 {
   static etl::string<128> line;
 
@@ -54,7 +55,8 @@ void consoleRead(RPUState& rpu_state)
         setWDTCount(0);
         Serial.println("WDT count reset to 0");
       } else if (tokens[0] == "m") {
-        enterMeasure(rpu_state);
+        sensorsEnabled.opc = sensorsEnabled.tdlas = sensorsEnabled.tsen = sensorsEnabled.rs41 = true;
+        enterMeasure(rpu_state);  // enables sensorsEnabled per flags
       } else if (tokens[0] == "s") {
         enterStandby(rpu_state);
       } else if (tokens[0] == "c") {

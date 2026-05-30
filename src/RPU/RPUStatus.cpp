@@ -56,7 +56,8 @@ static const char* stateStr(RPUState state)
 }
 void rpuReport(
     uint16_t board_id, const char* ver, RPUState state,
-    float vin, float vbat, float bat_t, float chg_i, float pcb_t,
+    float vin, float v_5V, float vbat, float bat_t, float chg_i, float pcb_t,
+    float pump_i, float opc_i, float tsen_i, float tdlas_i, float heater_i,
     uint32_t& on_ticks, uint32_t& total_ticks,
     TinyGPSPlus& gps)
 {
@@ -73,13 +74,14 @@ void rpuReport(
   on_ticks    = 0;
   total_ticks = 0;
 
-  char buf[200];
+  char buf[350];
   int n = snprintf(buf, sizeof(buf),
-    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"wdt_n\":%lu,\"vin\":%.2f,\"bat_v\":%.2f,\"bat_duty\":%d,\"chg_i\":%.1f,\"bat_t\":%.1f,\"pcb_t\":%.1f,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
+    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"wdt_n\":%lu,\"vin\":%.1f,\"v5\":%.1f,\"bat_v\":%.1f,\"bat_duty\":%d,\"chg_i\":%.1f,\"bat_t\":%.1f,\"pcb_t\":%.1f,\"pump_i\":%.1f,\"opc_i\":%.1f,\"tsen_i\":%.1f,\"tdlas_i\":%.1f,\"heater_i\":%.1f,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
     board_id, ver,
     stateStr(state),
     wdt_count,
-    vin, vbat, heater_duty, chg_i, bat_t, pcb_t,
+    vin, v_5V, vbat, heater_duty, chg_i, bat_t, pcb_t,
+    pump_i, opc_i, tsen_i, tdlas_i, heater_i,
     gps.location.lat(), gps.location.lng(),
     gps.altitude.meters(), gps.satellites.value());
 

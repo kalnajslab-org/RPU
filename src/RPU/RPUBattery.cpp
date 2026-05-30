@@ -18,7 +18,7 @@ bool batteryHeaterAllowed(float vin, float vbat, float v_crit_batt)
 }
 
 // Bang-bang controller with 0.5°C hysteresis. Returns true if heater is ON.
-bool AdjustHeaters(float temperature, float setpoint)
+bool adjustHeaters(float temperature, float setpoint)
 {
   bool heat = (temperature < setpoint - 0.5f);
   digitalWrite(BATTERY_HEATER, heat ? HIGH : LOW);
@@ -37,7 +37,7 @@ void manageHeater(float bat_temp, float setpoint,
 {
   total_ticks++;
   if (batteryHeaterAllowed(vin, vbat, v_crit)) {
-    if (AdjustHeaters(bat_temp, setpoint)) {
+    if (adjustHeaters(bat_temp, setpoint)) {
       on_ticks++;
     }
   }

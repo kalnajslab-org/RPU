@@ -13,7 +13,7 @@
 
 void powerdownSensors();
 bool batteryHeaterAllowed(float vin, float vbat, float v_crit_batt);
-bool AdjustHeaters(float temperature, float setpoint);
+bool adjustHeaters(float temperature, float setpoint);
 void updateTemperatures(TSensor1Bus& bat, TSensor1Bus& pcb, float& bat_temp, float& pcb_temp);
 void manageHeater(float bat_temp, float setpoint,
                   float vin, float vbat, float v_crit,

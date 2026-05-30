@@ -14,4 +14,4 @@
 #pragma once
 #include "RPUTypes.h"
 
-void consoleRead(RPUState& rpu_state);
+void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled);

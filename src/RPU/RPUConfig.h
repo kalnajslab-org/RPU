@@ -28,6 +28,17 @@ constexpr uint32_t CFG_RPU_REPORT_INTERVAL_S     = 30UL * 60UL; // [s] LoRa/dock
 constexpr uint32_t CFG_CONSOLE_REPORT_INTERVAL_S = 10UL;        // [s] USB serial status print
 
 // ---------------------------------------------------------------------------
+// Pump back-EMF controller
+// ---------------------------------------------------------------------------
+constexpr float CFG_PUMP_BEMF_SETPOINT = 9.0f;  // [V] target back-EMF for large pumps
+constexpr float CFG_PUMP_KP            = 30.0f; // proportional gain
+
+// ---------------------------------------------------------------------------
+// ADC averaging
+// ---------------------------------------------------------------------------
+constexpr int CFG_ADC_SAMPLES = 100; // samples averaged per analog read
+
+// ---------------------------------------------------------------------------
 // EEPROM layout
 // ---------------------------------------------------------------------------
 constexpr int CFG_EEPROM_WDT_COUNT_ADDR = 0;  // uint32_t: lifetime watchdog reset count

@@ -10,20 +10,16 @@
 
 enum class RPUState { STANDBY, MEASURE, ERROR };
 
-inline void enterStandby(RPUState& state)
-{
-  state = RPUState::STANDBY;
-  Serial.println("Entering STANDBY");
-}
+// ---------------------------------------------------------------------------
+// Sensor enable flags — set when powering up for MEASURE, cleared on powerdown
+// ---------------------------------------------------------------------------
+struct SensorsEnabled_t {
+  bool opc   = false;
+  bool tdlas = false;
+  bool tsen  = false;
+  bool rs41  = false;
+};
 
-inline void enterMeasure(RPUState& state)
-{
-  state = RPUState::MEASURE;
-  Serial.println("Entering MEASURE");
-}
-
-inline void enterError(RPUState& state)
-{
-  state = RPUState::ERROR;
-  Serial.println("ERROR: entering ERROR state");
-}
+void enterStandby(RPUState& state);
+void enterMeasure(RPUState& state);
+void enterError(RPUState& state);
