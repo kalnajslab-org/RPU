@@ -90,6 +90,7 @@ static RPUState rpu_state = RPUState::STANDBY;
 void enterStandby(RPUState& state)
 {
   sensorsEnabled = SensorsEnabled_t{};
+  pump.enabled = false;
   powerdownSensors();
   state = RPUState::STANDBY;
   Serial.println("Entering STANDBY");
@@ -97,7 +98,7 @@ void enterStandby(RPUState& state)
 
 void enterMeasure(RPUState& state)
 {
-  if (sensorsEnabled.opc)   { digitalWrite(OPC_ENABLE,   HIGH); }
+  if (sensorsEnabled.opc)   { digitalWrite(OPC_ENABLE,   HIGH); pump.enabled = true; }
   if (sensorsEnabled.tdlas) { digitalWrite(TDLAS_ENABLE, HIGH); }
   if (sensorsEnabled.tsen)  { digitalWrite(TSEN_ENABLE,  HIGH); }
   if (sensorsEnabled.rs41)  { digitalWrite(RS41_ENABLE,  HIGH); }
