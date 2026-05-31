@@ -515,7 +515,7 @@ void loop()
 
   
   // The state can be changed from the console
-  consoleRead(rpu_state, sensorsEnabled);
+  consoleRead(rpu_state, sensorsEnabled, pump.enabled);
 
 
   //----------------------------------------------------

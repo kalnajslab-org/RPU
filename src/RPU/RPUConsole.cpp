@@ -7,7 +7,7 @@
 #include <etl/string.h>
 #include <etl/vector.h>
 
-void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled)
+void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pump_enabled)
 {
   static etl::string<128> line;
 
@@ -41,11 +41,15 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled)
         Serial.println("Commands:");
         Serial.println("  h        - help");
         Serial.println("  b        - reboot");
+        Serial.println("  p        - toggle pump on/off");
         Serial.println("  m        - enter MEASURE state");
         Serial.println("  s        - enter STANDBY state");
         Serial.println("  w        - reset WDT trigger count in EEPROM to 0");
         Serial.println("  c <s>    - set console status print interval [s]");
         Serial.println("  r <s>    - set RPU status report interval [s]");
+      } else if (tokens[0] == "p") {
+        pump_enabled = !pump_enabled;
+        Serial.printf("pump %s\n", pump_enabled ? "ON" : "OFF");
       } else if (tokens[0] == "b") {
         Serial.println("Rebooting via WDT");
         delay(10000);
