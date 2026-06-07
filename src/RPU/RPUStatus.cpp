@@ -97,6 +97,8 @@ void rpuReport(
   pkt.setLon(gps.location.lng());
   pkt.setAlt(gps.altitude.meters());
   pkt.setSats((uint8_t)gps.satellites.value());
+  pkt.setGpsDate(gps.date.value());
+  pkt.setGpsTime(gps.time.value());
 
   uint8_t pkt_buf[RPU_PKT_BYTES];
   pkt.encode(pkt_buf, sizeof(pkt_buf));
