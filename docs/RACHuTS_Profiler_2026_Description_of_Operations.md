@@ -74,29 +74,30 @@ For a profile, the sequence of operations is:
 
 ## Implementation
 
+- Profiler data and TSEN data: Both are measured at the same cadence and stored
+                               as a single record. The records will be sent in response
+                               to RPUComm SEND_RECORDS command. This is different from 
+                               PUCode, which sent them in different blocks.
+
+- RPUData: The report type for RPU observations. It will bit packed on the RPU
+           using ETL. RATCHUTS will pass the data block through as the binary payload
+           in a RPUDATA type TM. As with RATSREPORT, here will be a header section
+           containing version identifier, and any other one-off information.
+
+- RPU restart: there will be a reboot command defined in RPUComm which will instruct
+               the RPU to reboot.
+
+- SD card: If an SD card is found on the RPU, data files will be saved to it. This will
+           folllow the scheme used by RPUTest.
+
+- RPUReport via LoRa: The RPUReport native format is JSON. It will be bit packed using
+                      ETL for the LoRa transmission, and unpacked when received by
+                      RATCHuTS.
+
+- RPUReport via DOCK_SERIAL: It will be sent as a JSON null terminated string.
+
 ### Questions
 
-- TODO: Question: The specifications in STANDBY mode say that the specifications are  
-                  the ones that have been saved (presumably from MEASUREMENT). Are these
-                  saved in EEPROM?
-
-- TODO: Question: Will there be a RPU reset RPUComm command? And corresponding TC?  
-                  Will it cause a reboot?
-
-- TODO: Queation: Are we saving data to the SD card, as was done in `RACHuTS_PU_V2_5.ino?
-
-- TODO: Question: Data will be bitpacked using `etlcpp`, as we are doing for RATS?  
-                  This will be done on the RPU?  
-                  `PUcode` had a header line in its data block. We will dispense with this?
-
-- TODO: Question: `PUCode` sent profiler and TSEN data in different data blocks.  
-                  Since the specifications for PUComm only has the `SEND_RECORDS` command,  
-                  profile data and TSEN data are measured on the same cadence, and each  
-                  data record contains both?
-
-- TODO: Question: What fields do we want in the RPUReport? Currently have "id,ver,  
-                  state,wdt_n,vin,bat_v,bat_duty,chg_i,bat_t,pcb_t,lat,lon,alt,sats"
-
-- TODO: Question: The RPUReport is delivered by both the LoRa and through the dock.  
-                  We shall send the latter as the same json string, via RPUComm?
-
+- Question: The specifications in STANDBY mode say that the specifications are  
+            the ones that have been saved (presumably from MEASUREMENT). Are these
+            saved in EEPROM?
