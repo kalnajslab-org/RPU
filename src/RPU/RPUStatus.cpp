@@ -1,6 +1,6 @@
 #include "RPUStatus.h"
 #include "RPUConfig.h"
-#include "RPUComm.h"
+#include "RPUcomm.h"
 #include "RPUUtil.h"
 #include "ProfilerHardware.h"
 #include <LoRa.h>
@@ -8,10 +8,10 @@
 // ---------------------------------------------------------------------------
 // Module-private timers and intervals
 // ---------------------------------------------------------------------------
-static elapsedSeconds rpu_report_timer;
+static elapsedSeconds rpu_status_timer;
 static elapsedSeconds console_report_timer;
 static uint32_t       wdt_count = 0;
-static uint32_t rpu_report_interval_s      = CFG_RPU_REPORT_INTERVAL_S;
+static uint32_t rpu_status_interval_s      = CFG_RPU_STATUS_INTERVAL_S;
 static uint32_t console_report_interval_s  = CFG_CONSOLE_REPORT_INTERVAL_S;
 
 // ---------------------------------------------------------------------------
@@ -22,14 +22,14 @@ void setWDTCount(uint32_t count)
   wdt_count = count;
 }
 
-void setRPUReportInterval(uint32_t seconds)
+void setRPUStatusInterval(uint32_t seconds)
 {
-  rpu_report_interval_s = seconds;
+  rpu_status_interval_s = seconds;
 }
 
-uint32_t getRPUReportInterval()
+uint32_t getRPUStatusInterval()
 {
-  return rpu_report_interval_s;
+  return rpu_status_interval_s;
 }
 
 void setConsoleStatusInterval(uint32_t seconds)
@@ -55,7 +55,7 @@ static const char* stateStr(RPUState state)
     default:                return "UNKNOWN";
   }
 }
-void rpuReport(
+void sendStatus(
     uint16_t board_id, const char* ver, RPUState state,
     float vin, float v_5V, float vbat, float bat_t, float chg_i, float pcb_t,
     float pump_i, float opc_i, float tsen_i, float tdlas_i, float heater_i,
@@ -63,11 +63,11 @@ void rpuReport(
     TinyGPSPlus& gps)
 {
   static bool first_call = true;
-  if (!first_call && rpu_report_timer < rpu_report_interval_s) {
+  if (!first_call && rpu_status_timer < rpu_status_interval_s) {
     return;
   }
   first_call = false;
-  rpu_report_timer = 0;
+  rpu_status_timer = 0;
 
   uint8_t heater_duty = (total_ticks > 0)
                         ? (uint8_t)(on_ticks * 100 / total_ticks)
@@ -111,20 +111,20 @@ void rpuReport(
   RPUPacket decoded;
   decoded.decode(pkt_buf, sizeof(pkt_buf));
 
-  char buf[350];
-  int n = decoded.toJSON(buf, sizeof(buf));
-  if (n >= (int)sizeof(buf)) {
-    Serial.println("WARNING: RPU status JSON truncated");
-  }
+  String json = decoded.toJSON();
 
-  DOCK_SERIAL.println(buf);
-  Serial.println(buf);
+  DOCK_SERIAL.println(json);
+  Serial.println(json);
 }
 
 void consoleReport(
     RPUState state, float elapsed_s,
     float vbat, float vin, bool heater_on)
 {
+  if (console_report_interval_s == 0) {
+    return;
+  }
+
   static bool first_call = true;
   if (!first_call && console_report_timer < console_report_interval_s) {
     return;

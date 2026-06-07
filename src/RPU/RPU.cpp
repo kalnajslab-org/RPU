@@ -181,13 +181,13 @@ static bool dockComms()
           return false;
 
         case RPU_SET_STATUS_RATE: {
-          uint32_t rate = getRPUReportInterval();
+          uint32_t rate = getRPUStatusInterval();
           tmp1 = rpucomm.Get_uint32(&rate);
           if (tmp1) { 
-            setRPUReportInterval(rate); 
+            setRPUStatusInterval(rate); 
           }
           rpucomm.TX_Ack(RPU_SET_STATUS_RATE, tmp1);
-          DEBUG_SERIAL.printf("STATUS_RATE=%lu\n", getRPUReportInterval());
+          DEBUG_SERIAL.printf("STATUS_RATE=%lu\n", getRPUStatusInterval());
           return false;
         }
 
@@ -507,7 +507,7 @@ void loop()
   consoleReport(rpu_state, millis() / 1000.0f,
                 bat_v, vin, digitalRead(BATTERY_HEATER));
 
-  rpuReport(rpu_id, RPU_VERSION, rpu_state,
+  sendStatus(rpu_id, RPU_VERSION, rpu_state,
             vin, v_5V, bat_v, bat_t, charge_i, pcb_t,
             pump_i, opc_i, tsen_i, tdlas_i, heater_i,
             heater_on_ticks, heater_total_ticks,
