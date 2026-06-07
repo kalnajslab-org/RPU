@@ -73,10 +73,10 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         }
       } else if (tokens[0] == "r") {
         if (tokens.size() < 2) {
-          Serial.printf("RPU status report interval: %lus\n", getRPUReportInterval());
+          Serial.printf("RPU status report interval: %lus\n", getRPUStatusInterval());
         } else {
           uint32_t s = (uint32_t)atol(tokens[1].c_str());
-          setRPUReportInterval(s);
+          setRPUStatusInterval(s);
           Serial.printf("RPU status report interval set to %lus\n", s);
         }
       } else {
