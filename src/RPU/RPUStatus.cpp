@@ -1,5 +1,6 @@
 #include "RPUStatus.h"
 #include "RPUConfig.h"
+#include "RPUComm.h"
 #include "RPUUtil.h"
 #include "ProfilerHardware.h"
 #include <LoRa.h>
@@ -74,27 +75,47 @@ void rpuReport(
   on_ticks    = 0;
   total_ticks = 0;
 
-  char buf[350];
-  int n = snprintf(buf, sizeof(buf),
-    "{\"id\":\"%04X\",\"ver\":\"%s\",\"state\":\"%s\",\"wdt_n\":%lu,\"vin\":%.1f,\"v5\":%.1f,\"bat_v\":%.1f,\"bat_duty\":%d,\"chg_i\":%.1f,\"bat_t\":%.1f,\"pcb_t\":%.1f,\"pump_i\":%.1f,\"opc_i\":%.1f,\"tsen_i\":%.1f,\"tdlas_i\":%.1f,\"heater_i\":%.1f,\"lat\":%.6f,\"lon\":%.6f,\"alt\":%.1f,\"sats\":%lu}",
-    board_id, ver,
-    stateStr(state),
-    wdt_count,
-    vin, v_5V, vbat, heater_duty, chg_i, bat_t, pcb_t,
-    pump_i, opc_i, tsen_i, tdlas_i, heater_i,
-    gps.location.lat(), gps.location.lng(),
-    gps.altitude.meters(), gps.satellites.value());
+  // Build bit-packed binary payload for LoRa
+  RPUPacket pkt;
+  pkt.setBoardId(board_id);
+  pkt.setVer(ver);
+  pkt.setState((uint8_t)state);
+  pkt.setWdtCount((uint8_t)wdt_count);
+  pkt.setVin(vin);
+  pkt.setV5V(v_5V);
+  pkt.setBatV(vbat);
+  pkt.setHeaterDuty(heater_duty);
+  pkt.setChgI(chg_i);
+  pkt.setBatT(bat_t);
+  pkt.setPcbT(pcb_t);
+  pkt.setPumpI(pump_i);
+  pkt.setOpcI(opc_i);
+  pkt.setTsenI(tsen_i);
+  pkt.setTdlasI(tdlas_i);
+  pkt.setHeaterI(heater_i);
+  pkt.setLat(gps.location.lat());
+  pkt.setLon(gps.location.lng());
+  pkt.setAlt(gps.altitude.meters());
+  pkt.setSats((uint8_t)gps.satellites.value());
 
+  uint8_t pkt_buf[RPU_PKT_BYTES];
+  pkt.encode(pkt_buf, sizeof(pkt_buf));
+
+  LoRa.beginPacket();
+  LoRa.write(pkt_buf, RPU_PKT_BYTES);
+  LoRa.endPacket();
+
+  // Decode the packet just sent and report it as JSON
+  RPUPacket decoded;
+  decoded.decode(pkt_buf, sizeof(pkt_buf));
+
+  char buf[350];
+  int n = decoded.toJSON(buf, sizeof(buf));
   if (n >= (int)sizeof(buf)) {
     Serial.println("WARNING: RPU status JSON truncated");
   }
 
   DOCK_SERIAL.println(buf);
-
-  LoRa.beginPacket();
-  LoRa.print(buf);
-  LoRa.endPacket();
-
   Serial.println(buf);
 }
 
