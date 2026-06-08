@@ -141,15 +141,16 @@ static bool dockComms()
           return false;
 
         case RPU_GO_MEASURE: {
-          int8_t OPC_Power = 0, TDLAS_Power = 0, TSEN_Power = 0;
+          int8_t OPC_Power = 0, TDLAS_Power = 0, TSEN_Power = 0, RS41_Power = 0;
           tmp1 = rpucomm.RX_GoMeasure(&MeasureDuration, &MeasureRate,
-                                      &OPC_Power, &TDLAS_Power, &TSEN_Power);
+                                      &OPC_Power, &TDLAS_Power, &TSEN_Power, &RS41_Power);
           rpucomm.TX_Ack(RPU_GO_MEASURE, tmp1);
           if (tmp1) {
             DEBUG_SERIAL.println("Received RPU_GO_MEASURE");
             sensorsEnabled.opc   = OPC_Power;
             sensorsEnabled.tdlas = TDLAS_Power;
             sensorsEnabled.tsen  = TSEN_Power;
+            sensorsEnabled.rs41  = RS41_Power;
             enterMeasure(rpu_state);
             return true;
           }
