@@ -142,11 +142,13 @@ static bool dockComms()
 
         case RPU_GO_MEASURE: {
           int8_t OPC_Power = 0, TDLAS_Power = 0, TSEN_Power = 0, RS41_Power = 0;
-          tmp1 = rpucomm.RX_GoMeasure(&MeasureDuration, &MeasureRate,
+          float  BatTSetpoint = bat_t_setpoint;
+          tmp1 = rpucomm.RX_GoMeasure(&MeasureDuration, &MeasureRate, &BatTSetpoint,
                                       &OPC_Power, &TDLAS_Power, &TSEN_Power, &RS41_Power);
           rpucomm.TX_Ack(RPU_GO_MEASURE, tmp1);
           if (tmp1) {
             DEBUG_SERIAL.println("Received RPU_GO_MEASURE");
+            bat_t_setpoint       = BatTSetpoint;
             sensorsEnabled.opc   = OPC_Power;
             sensorsEnabled.tdlas = TDLAS_Power;
             sensorsEnabled.tsen  = TSEN_Power;
@@ -157,11 +159,18 @@ static bool dockComms()
           return false;
         }
 
-        case RPU_GO_STANDBY:
-          rpucomm.TX_Ack(RPU_GO_STANDBY, true);
-          DEBUG_SERIAL.println("Received RPU_GO_STANDBY");
-          enterStandby(rpu_state);
-          return true;
+        case RPU_GO_STANDBY: {
+          float BatTSetpoint = bat_t_setpoint;
+          tmp1 = rpucomm.RX_GoStandby(&BatTSetpoint);
+          rpucomm.TX_Ack(RPU_GO_STANDBY, tmp1);
+          if (tmp1) {
+            DEBUG_SERIAL.println("Received RPU_GO_STANDBY");
+            bat_t_setpoint = BatTSetpoint;
+            enterStandby(rpu_state);
+            return true;
+          }
+          return false;
+        }
 
         case RPU_SET_BATT_T:
           tmp1 = rpucomm.Get_float(&bat_t_setpoint);
@@ -413,7 +422,7 @@ void setup()
   }
 
   WDT_timings_t wdt_config;
-  wdt_config.timeout = 10; // seconds
+  wdt_config.timeout = CFG_WDT_TIMEOUT_S;
   wdt.begin(wdt_config);
 
   GPS_SERIAL.begin(9600);

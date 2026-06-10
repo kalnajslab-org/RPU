@@ -39,6 +39,11 @@ constexpr float CFG_PUMP_KP            = 30.0f; // proportional gain
 constexpr int CFG_ADC_SAMPLES = 100; // samples averaged per analog read
 
 // ---------------------------------------------------------------------------
+// Watchdog
+// ---------------------------------------------------------------------------
+constexpr uint32_t CFG_WDT_TIMEOUT_S = 10; // [s] hardware watchdog timeout
+
+// ---------------------------------------------------------------------------
 // EEPROM layout
 // ---------------------------------------------------------------------------
 constexpr int CFG_EEPROM_WDT_COUNT_ADDR = 0;  // uint32_t: lifetime watchdog reset count

@@ -52,7 +52,7 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         Serial.printf("pump %s\n", pump_enabled ? "ON" : "OFF");
       } else if (tokens[0] == "b") {
         Serial.println("Rebooting via WDT");
-        delay(10000);
+        delay((CFG_WDT_TIMEOUT_S + 2) * 1000UL);
       } else if (tokens[0] == "w") {
         uint32_t zero = 0;
         EEPROM.put(CFG_EEPROM_WDT_COUNT_ADDR, zero);
