@@ -122,22 +122,31 @@ static void sendTM()
 static bool dockComms()
 {
   int8_t   tmp1;
-  uint32_t tmp3;
 
   switch (rpucomm.RX()) {
     case ASCII_MESSAGE:
       switch (rpucomm.ascii_rx.msg_id) {
-        case RPU_SEND_STATUS:
-          tmp3 = now();
-          tmp1 = rpucomm.TX_Status(tmp3, readVBat(), readChargeI(),
-                                   bat_t, pcb_t,
-                                   digitalRead(BATTERY_HEATER));
+        case RPU_SEND_STATUS: {
           DEBUG_SERIAL.println("Received RPU_SEND_STATUS");
+          String json = getStatusJSON(rpu_id, RPU_VERSION, rpu_state,
+              vin, v_5V, bat_v, bat_t, charge_i, pcb_t,
+              pump_i, opc_i, tsen_i, tdlas_i, heater_i,
+              heater_on_ticks, heater_total_ticks,
+              profiler_gps);
+          rpucomm.TX_Status(json.c_str());
+          DEBUG_SERIAL.println("Sent RPU_SEND_STATUS");
           return false;
+        }
 
         case RPU_SEND_RECORDS:
           DEBUG_SERIAL.println("Received RPU_SEND_RECORDS");
           sendTM();
+          return false;
+
+        case RPU_RESET:
+          rpucomm.TX_Ack(RPU_RESET, true);
+          DEBUG_SERIAL.println("Received RPU_RESET - rebooting via WDT");
+          delay((CFG_WDT_TIMEOUT_S + 2) * 1000UL);
           return false;
 
         case RPU_GO_MEASURE: {

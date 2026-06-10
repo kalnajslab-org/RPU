@@ -2,7 +2,6 @@
 #include "RPUConfig.h"
 #include "RPUcomm.h"
 #include "RPUUtil.h"
-#include "ProfilerHardware.h"
 #include <LoRa.h>
 
 // ---------------------------------------------------------------------------
@@ -55,27 +54,13 @@ static const char* stateStr(RPUState state)
     default:                return "UNKNOWN";
   }
 }
-void sendStatus(
+static RPUPacket buildStatusPacket(
     uint16_t board_id, const char* ver, RPUState state,
     float vin, float v_5V, float vbat, float bat_t, float chg_i, float pcb_t,
     float pump_i, float opc_i, float tsen_i, float tdlas_i, float heater_i,
-    uint32_t& on_ticks, uint32_t& total_ticks,
+    uint8_t heater_duty,
     TinyGPSPlus& gps)
 {
-  static bool first_call = true;
-  if (!first_call && rpu_status_timer < rpu_status_interval_s) {
-    return;
-  }
-  first_call = false;
-  rpu_status_timer = 0;
-
-  uint8_t heater_duty = (total_ticks > 0)
-                        ? (uint8_t)(on_ticks * 100 / total_ticks)
-                        : 0;
-  on_ticks    = 0;
-  total_ticks = 0;
-
-  // Build bit-packed binary payload for LoRa
   RPUPacket pkt;
   pkt.setBoardId(board_id);
   pkt.setVer(ver);
@@ -99,6 +84,34 @@ void sendStatus(
   pkt.setSats((uint8_t)gps.satellites.value());
   pkt.setGpsDate(gps.date.value());
   pkt.setGpsTime(gps.time.value());
+  return pkt;
+}
+
+void sendStatus(
+    uint16_t board_id, const char* ver, RPUState state,
+    float vin, float v_5V, float vbat, float bat_t, float chg_i, float pcb_t,
+    float pump_i, float opc_i, float tsen_i, float tdlas_i, float heater_i,
+    uint32_t& on_ticks, uint32_t& total_ticks,
+    TinyGPSPlus& gps)
+{
+  static bool first_call = true;
+  if (!first_call && rpu_status_timer < rpu_status_interval_s) {
+    return;
+  }
+  first_call = false;
+  rpu_status_timer = 0;
+
+  uint8_t heater_duty = (total_ticks > 0)
+                        ? (uint8_t)(on_ticks * 100 / total_ticks)
+                        : 0;
+  on_ticks    = 0;
+  total_ticks = 0;
+
+  // Build bit-packed binary payload for LoRa
+  RPUPacket pkt = buildStatusPacket(board_id, ver, state,
+      vin, v_5V, vbat, bat_t, chg_i, pcb_t,
+      pump_i, opc_i, tsen_i, tdlas_i, heater_i,
+      heater_duty, gps);
 
   uint8_t pkt_buf[RPU_PKT_BYTES];
   pkt.encode(pkt_buf, sizeof(pkt_buf));
@@ -113,8 +126,26 @@ void sendStatus(
 
   String json = decoded.toJSON();
 
-  DOCK_SERIAL.println(json);
   Serial.println(json);
+}
+
+String getStatusJSON(
+    uint16_t board_id, const char* ver, RPUState state,
+    float vin, float v_5V, float vbat, float bat_t, float chg_i, float pcb_t,
+    float pump_i, float opc_i, float tsen_i, float tdlas_i, float heater_i,
+    uint32_t on_ticks, uint32_t total_ticks,
+    TinyGPSPlus& gps)
+{
+  uint8_t heater_duty = (total_ticks > 0)
+                        ? (uint8_t)(on_ticks * 100 / total_ticks)
+                        : 0;
+
+  RPUPacket pkt = buildStatusPacket(board_id, ver, state,
+      vin, v_5V, vbat, bat_t, chg_i, pcb_t,
+      pump_i, opc_i, tsen_i, tdlas_i, heater_i,
+      heater_duty, gps);
+
+  return pkt.toJSON();
 }
 
 void consoleReport(

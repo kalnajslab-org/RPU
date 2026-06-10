@@ -39,6 +39,16 @@ void sendStatus(
     uint32_t& on_ticks, uint32_t& total_ticks,
     TinyGPSPlus& gps);
 
+// Build a status packet from the current values and return it as JSON,
+// without resetting the heater duty-cycle accumulators. Used to answer
+// on-demand RPU_SEND_STATUS requests over the docking connector.
+String getStatusJSON(
+    uint16_t board_id, const char* ver, RPUState state,
+    float vin, float v_5V, float vbat, float bat_t, float chg_i, float pcb_t,
+    float pump_i, float opc_i, float tsen_i, float tdlas_i, float heater_i,
+    uint32_t on_ticks, uint32_t total_ticks,
+    TinyGPSPlus& gps);
+
 void consoleReport(
     RPUState state, float elapsed_s,
     float vbat, float vin, bool heater_on);
