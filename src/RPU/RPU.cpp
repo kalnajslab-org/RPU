@@ -15,6 +15,7 @@
 #include "RPUConsole.h"
 #include "RPUOPC.h"
 #include "RPUTDLAS.h"
+#include "RPUTSEN.h"
 
 // ---------------------------------------------------------------------------
 // Configurable parameters (settable via command)
@@ -55,6 +56,7 @@ static float tdlas_i       = 0.0f;
 static float heater_i      = 0.0f;
 static ROPCData opcData;
 static TDLASData tdlasData;
+static String   tsenData;
 
 // ---------------------------------------------------------------------------
 // GPS / TDLAS serial buffers
@@ -243,8 +245,9 @@ static void tickMeasure()
 
   // --- RS41 Radiosonde -------------------------------------------------------
   RS41::RS41SensorData_t sensor_data = rs41.decoded_sensor_data(false);
+  bool rs41_ok = sensor_data.valid;
 
-  if (sensor_data.valid)
+  if (0) // Debug print of RS41 sensor data
   {
     Serial.printf("RS41: frame=%lu air_temp=%.2fC humidity=%.2f%% hsensor_temp=%.2fC pres=%.2fmb "
                   "int_temp=%.2fC status=%u err=%u pcb_supply=%.3fV lsm303_temp=%.2fC heater=%d "
@@ -269,47 +272,14 @@ static void tickMeasure()
   }
 
   // --- OPC -------------------------------------------------------------------
-  readOPC(opcData);
+  bool gotOPC = readOPC(opcData);
 
   // --- TSEN -------------------------------------------------------------------
-  TSEN_SERIAL.print("*01A?\r");
-  TSEN_SERIAL.flush();
-  delay(10);
-  Serial.print("TSEN: ");
-  while(TSEN_SERIAL.available() >0)
-    Serial.write(TSEN_SERIAL.read());
-  Serial.println();
+  bool gotTSEN = readTSEN(tsenData);
 
   // --- TDLAS -----------------------------------------------------------------
   
-  readTDLAS(tdlasData);
-  if (0) { 
-    // --- Analog voltage / current monitors ------------------------------------
-    Serial.print("Battery Voltage: ");    Serial.println(bat_v);
-    Serial.print("Input Voltage: ");      Serial.println(vin);
-    Serial.print("Charge Current: ");     Serial.println(charge_i);
-    Serial.print("5V Supply: ");          Serial.println(v_5V);
-    Serial.print("Pump Current (mA): ");  Serial.println(pump_i);
-    Serial.print("OPC Current: ");        Serial.println(opc_i);
-    Serial.print("TSEN Current: ");       Serial.println(tsen_i);
-    Serial.print("TDLAS Current: ");      Serial.println(tdlas_i);
-    Serial.print("Battery Heater Current: "); Serial.println(heater_i);
-
-
-    // --- Temperature sensorsEnabled ---------------------------------------------------
-    TempPCB.ManageState(pcb_t);
-    Serial.print("PCB Temp: ");     Serial.println(pcb_t);
-
-    TempPump.ManageState(pump_t);
-    Serial.print("Pump Temp: ");    Serial.println(pump_t);
-
-    TempBattery.ManageState(bat_t);
-    Serial.print("Battery Temp: "); Serial.println(bat_t);
-  }
-
-  // --- Control loops ---------------------------------------------------------
-  adjustPump(pump, bat_v);
-  adjustHeaters(bat_t, bat_t_setpoint);
+  bool gotTDLAS = readTDLAS(tdlasData);
 
   // --- Write combined data line to SD ----------------------------------------
   // Single CSV row containing all collected variables.
@@ -365,6 +335,11 @@ static void tickMeasure()
     sensor_data.valid ? sensor_data.accelZ_mG                   : 0.0f);
 
   //Serial.println(DataLine);
+
+  // --- Control loops ---------------------------------------------------------
+  adjustPump(pump, bat_v);
+  adjustHeaters(bat_t, bat_t_setpoint);
+
 }
 
 static void tickError()
