@@ -57,6 +57,7 @@ static float heater_i      = 0.0f;
 static ROPCData opcData;
 static TDLASData tdlasData;
 static String   tsenData;
+static TSENData tsenRaw;
 
 // ---------------------------------------------------------------------------
 // GPS / TDLAS serial buffers
@@ -275,7 +276,7 @@ static void tickMeasure()
   bool gotOPC = readOPC(opcData);
 
   // --- TSEN -------------------------------------------------------------------
-  bool gotTSEN = readTSEN(tsenData);
+  bool gotTSEN = readTSEN(tsenData, tsenRaw);
 
   // --- TDLAS -----------------------------------------------------------------
   

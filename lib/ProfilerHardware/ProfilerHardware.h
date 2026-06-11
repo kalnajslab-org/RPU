@@ -116,3 +116,14 @@ struct TDLASData {
   float  spec_3;  // TDLAS spectrum value 3
   float  spec_4;  // TDLAS spectrum value 4
 };
+
+// ---------------------------------------------------------------------------
+// TSEN parsed data structure
+// Raw (uncalibrated) hex fields from the TSEN response "#AAA PPPPPP TTTTTT\r"
+// (19 chars), as parsed by the ECU (see ECU.ino / add_tsen()).
+// ---------------------------------------------------------------------------
+struct TSENData {
+  uint16_t airt_raw;  // air temperature, raw 12-bit A/D count (0-0xFFF)
+  uint32_t ptemp_raw; // pressure-sensor temperature, raw 24-bit count
+  uint32_t pres_raw;  // pressure, raw 24-bit count
+};
