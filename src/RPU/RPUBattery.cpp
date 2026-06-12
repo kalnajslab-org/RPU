@@ -25,10 +25,11 @@ bool adjustHeaters(float temperature, float setpoint)
   return heat;
 }
 
-void updateTemperatures(TSensor1Bus& bat, TSensor1Bus& pcb, float& bat_temp, float& pcb_temp)
+void updateTemperatures(TSensor1Bus& bat, TSensor1Bus& pcb, TSensor1Bus& pump, float& bat_temp, float& pcb_temp, float& pump_temp)
 {
   bat.ManageState(bat_temp);
   pcb.ManageState(pcb_temp);
+  pump.ManageState(pump_temp);
 }
 
 void manageHeater(float bat_temp, float setpoint,
