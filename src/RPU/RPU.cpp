@@ -130,14 +130,12 @@ static bool dockComms()
     case ASCII_MESSAGE:
       switch (rpucomm.ascii_rx.msg_id) {
         case RPU_SEND_STATUS: {
-          DEBUG_SERIAL.println("Received RPU_SEND_STATUS");
           String json = getStatusJSON(rpu_id, RPU_VERSION, rpu_state,
               vin, v_5V, bat_v, bat_t, charge_i, pcb_t,
               pump_i, opc_i, tsen_i, tdlas_i, heater_i,
               heater_on_ticks, heater_total_ticks,
               profiler_gps);
           rpucomm.TX_Status(json.c_str());
-          DEBUG_SERIAL.println("Sent RPU_SEND_STATUS");
           return false;
         }
 
