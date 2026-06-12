@@ -16,6 +16,7 @@
 #include "RPUOPC.h"
 #include "RPUTDLAS.h"
 #include "RPUTSEN.h"
+#include "RPURecordBuffer.h"
 
 // ---------------------------------------------------------------------------
 // Configurable parameters (settable via command)
@@ -118,8 +119,24 @@ void enterError(RPUState& state)
 // ---------------------------------------------------------------------------
 // Communications
 // ---------------------------------------------------------------------------
+static constexpr size_t RPU_TM_BUFFER_BYTES = 8192;
+static constexpr size_t RPU_TM_MAX_RECORDS  = RPU_TM_BUFFER_BYTES / RPU_RPT_BYTES;
+
 static void sendTM()
 {
+  static uint8_t tm_buf[RPU_TM_MAX_RECORDS * RPU_RPT_BYTES];
+
+  size_t count = 0;
+  while (count < RPU_TM_MAX_RECORDS && rpu_records.pop(&tm_buf[count * RPU_RPT_BYTES], RPU_RPT_BYTES)) {
+    count++;
+  }
+
+  if (count > 0) {
+    rpucomm.AssignBinaryTXBuffer(tm_buf, sizeof(tm_buf), count * RPU_RPT_BYTES);
+    rpucomm.TX_Bin(RPU_PROFILE_RECORD);
+  } else {
+    rpucomm.TX_ASCII(RPU_NO_MORE_RECORDS);
+  }
 }
 
 static bool dockComms()
@@ -130,6 +147,7 @@ static bool dockComms()
     case ASCII_MESSAGE:
       switch (rpucomm.ascii_rx.msg_id) {
         case RPU_SEND_STATUS: {
+          DEBUG_SERIAL.println("Received RPU_SEND_STATUS");
           String json = getStatusJSON(rpu_id, RPU_VERSION, rpu_state,
               vin, v_5V, bat_v, bat_t, charge_i, pcb_t,
               pump_i, opc_i, tsen_i, tdlas_i, heater_i,
@@ -408,6 +426,10 @@ static void tickMeasure()
   report.setRs41Lsm303T(    rs41_ok ? sensor_data.lsm303_temp_degC   : 0.0f);
   report.setRs41PcbHeaterOn(rs41_ok ? sensor_data.pcb_heater_on      : false);
   report.setRs41MagXY(      rs41_ok ? sensor_data.mag_hdgXY_deg      : 0);
+
+  if (!rpu_records.push(report)) {
+    Serial.println("WARNING: rpu_records buffer full — record dropped");
+  }
 
   uint8_t report_buf[RPU_RPT_BYTES];
   report.encode(report_buf, sizeof(report_buf));
