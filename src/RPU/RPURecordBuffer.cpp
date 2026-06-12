@@ -2,14 +2,14 @@
 
 DMAMEM RPURecordBuffer rpu_records;
 
-bool RPURecordBuffer::push(const RPUReport& report)
+bool RPURecordBuffer::push(const RPURecord& record)
 {
   if (records_.full()) { return false; }
 
-  Record record;
-  if (!report.encode(record.data(), record.size())) { return false; }
+  EncodedRecord encoded;
+  if (!record.encode(encoded.data(), encoded.size())) { return false; }
 
-  records_.push(record);
+  records_.push(encoded);
   return true;
 }
 

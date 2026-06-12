@@ -90,11 +90,11 @@ For a profile, the sequence of operations is:
 - SD card: If an SD card is found on the RPU, data files will be saved to it. This will
            folllow the scheme used by RPUTest.
 
-- RPUReport via LoRa: The RPUReport native format is JSON. It will be bit packed using
+- RPURecord via LoRa: The RPURecord native format is JSON. It will be bit packed using
                       ETL for the LoRa transmission, and unpacked when received by
                       RATCHuTS.
 
-- RPUReport via DOCK_SERIAL: It will be sent as a JSON null terminated string.
+- RPURecord via DOCK_SERIAL: It will be sent as a JSON null terminated string.
 
 ### Questions
 
