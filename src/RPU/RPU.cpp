@@ -98,7 +98,6 @@ static uint32_t MeasureStartMillis = 0;
 static double   GPSStartLat        = 0.0;
 static double   GPSStartLon        = 0.0;
 static bool     GPSStartCaptured   = false;
-static uint8_t  RoundRobinIdx      = 0;
 
 void enterStandby(RPUState& state)
 {
@@ -117,7 +116,7 @@ void enterMeasure(RPUState& state)
   if (sensorsEnabled.rs41)  { digitalWrite(RS41_ENABLE,  HIGH); }
   MeasureStartMillis = millis();
   GPSStartCaptured   = false;
-  RoundRobinIdx      = 0;
+  RPURecord::resetRotation();
   state = RPUState::MEASURE;
   Serial.println("Entering MEASURE");
 }
@@ -407,8 +406,6 @@ static void tickMeasure()
   record.setTdlasPeak(tdlasData.peak);
   record.setTdlasRatio(tdlasData.ratio);
 
-  record.setRoundRobinIdx(RoundRobinIdx);
-
   // Slow / round-robin fields (period = 8)
   record.setOpcD500(opcData.d500);
   record.setOpcD700(opcData.d700);
@@ -441,7 +438,7 @@ static void tickMeasure()
     Serial.println("WARNING: rpu_records buffer full — record dropped");
   }
 
-  RoundRobinIdx = (RoundRobinIdx + 1) % 8;
+  RPURecord::advanceRotation();
 
   uint8_t record_buf[RPU_RECORD_BYTES];
   record.encode(record_buf, sizeof(record_buf));
