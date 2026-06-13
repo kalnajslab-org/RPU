@@ -6,7 +6,7 @@
  *
  * Storage lives in RAM2 (DMAMEM / OCRAM2), which is DMA-accessible, unlike
  * the default DTCM (RAM1) data section. At RPU_MAX_RECORDS x RPU_RECORD_BYTES
- * = 5000 x 40 = 200000 bytes (~195 KiB), this consumes about 38% of the
+ * = 5000 x 38 = 190000 bytes (~185.5 KiB), this consumes about 36% of the
  * 512 KiB RAM2 region, so keep that in mind before adding other DMAMEM
  * buffers.
  */
