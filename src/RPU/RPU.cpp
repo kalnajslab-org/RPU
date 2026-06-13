@@ -286,7 +286,7 @@ static void tickMeasure()
 {
   static elapsedMillis tick_timer;
   if (tick_timer < 1000) { return; }
-  tick_timer = 0;
+  tick_timer -= 1000;   
 
   // --- Temperatures ------------------------------------------------------------
   updateTemperatures(TempBattery, TempPCB, TempPump, bat_t, pcb_t, pump_t);
