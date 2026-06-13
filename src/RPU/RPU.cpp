@@ -63,7 +63,7 @@ static TSENData tsenRaw;
 // ---------------------------------------------------------------------------
 // GPS / TDLAS / Dock serial buffers
 // ---------------------------------------------------------------------------
-static constexpr size_t RPU_TM_MAX_RECORDS  = 150;
+static constexpr size_t RPU_TM_MAX_RECORDS  = 120;
 static constexpr size_t RPU_TM_BUFFER_BYTES = RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES;
 
 static uint8_t GPS_Serial_Buffer[4096];
