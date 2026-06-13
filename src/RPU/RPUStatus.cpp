@@ -2,6 +2,7 @@
 #include "RPUConfig.h"
 #include "RPUcomm.h"
 #include "RPUUtil.h"
+#include "RPURecordBuffer.h"
 #include <LoRa.h>
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,7 @@ static RPUPacket buildStatusPacket(
   pkt.setVer(ver);
   pkt.setState((uint8_t)state);
   pkt.setWdtCount((uint8_t)wdt_count);
+  pkt.setBufferedRecords((uint8_t)rpu_records.size());
   pkt.setVin(vin);
   pkt.setV5V(v_5V);
   pkt.setBatV(vbat);
