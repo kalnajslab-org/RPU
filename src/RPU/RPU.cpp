@@ -63,14 +63,14 @@ static TSENData tsenRaw;
 // ---------------------------------------------------------------------------
 // GPS / TDLAS / Dock serial buffers
 // ---------------------------------------------------------------------------
-static constexpr size_t RPU_TM_BUFFER_BYTES = 8192;
-static constexpr size_t RPU_TM_MAX_RECORDS  = RPU_TM_BUFFER_BYTES / RPU_RECORD_BYTES;
+static constexpr size_t RPU_TM_MAX_RECORDS  = 150;
+static constexpr size_t RPU_TM_BUFFER_BYTES = RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES;
 
 static uint8_t GPS_Serial_Buffer[4096];
 static uint8_t TDLAS_Serial_Buffer[1028];
 
 // Extra TX ring-buffer space for DOCK_SERIAL, sized to hold the largest
-// single TX_Bin() write (a full RPU_TM_MAX_RECORDS-record TM block, ~8186
+// single TX_Bin() write (a full RPU_TM_MAX_RECORDS-record TM block, ~7616
 // bytes including framing) so that sendRPURecords() doesn't block the main
 // loop while bytes drain out at 115200 baud.
 static uint8_t Dock_Serial_TX_Buffer[RPU_TM_BUFFER_BYTES];
@@ -139,19 +139,25 @@ void enterError(RPUState& state)
 // ---------------------------------------------------------------------------
 // Communications
 // ---------------------------------------------------------------------------
+// Records popped from rpu_records but not yet ACKed by the dock. Held here so
+// a NAK (or lost ACK) can be retransmitted from the same buffer instead of
+// popping (and thereby losing) the next batch from the FIFO.
+static uint8_t tm_buf[RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES];
+static size_t  tm_pending_records = 0;
+
 static void sendRPURecords()
 {
-  static uint8_t tm_buf[RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES];
-
-  size_t count = 0;
-  while (count < RPU_TM_MAX_RECORDS && rpu_records.pop(&tm_buf[count * RPU_RECORD_BYTES], RPU_RECORD_BYTES)) {
-    count++;
+  if (tm_pending_records == 0) {
+    while (tm_pending_records < RPU_TM_MAX_RECORDS &&
+           rpu_records.pop(&tm_buf[tm_pending_records * RPU_RECORD_BYTES], RPU_RECORD_BYTES)) {
+      tm_pending_records++;
+    }
   }
 
-  DEBUG_SERIAL.printf("sendRPURecords: sending %u record(s)\n", (unsigned)count);
+  DEBUG_SERIAL.printf("sendRPURecords: sending %u record(s)\n", (unsigned)tm_pending_records);
 
-  if (count > 0) {
-    rpucomm.AssignBinaryTXBuffer(tm_buf, sizeof(tm_buf), count * RPU_RECORD_BYTES);
+  if (tm_pending_records > 0) {
+    rpucomm.AssignBinaryTXBuffer(tm_buf, sizeof(tm_buf), tm_pending_records * RPU_RECORD_BYTES);
     rpucomm.TX_Bin(RPU_PROFILE_RECORD);
   } else {
     rpucomm.TX_ASCII(RPU_NO_MORE_RECORDS);
@@ -257,6 +263,9 @@ static bool dockComms()
       DEBUG_SERIAL.print("ACK/NAK for msg: ");
       DEBUG_SERIAL.println(rpucomm.ack_id);
       rpucomm.ack_value ? DEBUG_SERIAL.println("ACK") : DEBUG_SERIAL.println("NAK");
+      if (rpucomm.ack_id == RPU_PROFILE_RECORD && rpucomm.ack_value) {
+        tm_pending_records = 0;
+      }
       return false;
 
     case NO_MESSAGE:
@@ -448,12 +457,14 @@ static void tickMeasure()
 
   RPURecord::advanceRotation();
 
-  uint8_t record_buf[RPU_RECORD_BYTES];
-  record.encode(record_buf, sizeof(record_buf));
+  if (getDebugJsonEnabled()) {
+    uint8_t record_buf[RPU_RECORD_BYTES];
+    record.encode(record_buf, sizeof(record_buf));
 
-  RPURecord decoded_record;
-  decoded_record.decode(record_buf, sizeof(record_buf));
-  Serial.println(decoded_record.toJSON());
+    RPURecord decoded_record;
+    decoded_record.decode(record_buf, sizeof(record_buf));
+    Serial.println(decoded_record.toJSON());
+  }
 }
 
 static void tickError()

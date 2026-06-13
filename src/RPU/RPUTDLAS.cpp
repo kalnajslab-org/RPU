@@ -1,5 +1,6 @@
 #include "RPUTDLAS.h"
 #include <Arduino.h>
+#include "RPUConsole.h"
 
 static const uint8_t TDLAS_FIELD_COUNT = 12;
 
@@ -59,12 +60,14 @@ bool readTDLAS(TDLASData& data)
     return false;
   }
 
-  Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f batt=%.3fV"
-                " therm_1=%.2fC therm_2=%.2f Idx=%d"
-                " spec_1=%.4f spec_2=%.4f spec_3=%.4f spec_4=%.4f\n",
-    data.mr_avg, data.bkg, data.peak, data.ratio,
-    data.batt, data.therm_1, data.therm_2, data.indx,
-    data.spec_1, data.spec_2, data.spec_3, data.spec_4);
+  if (getDebugJsonEnabled()) {
+    Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f batt=%.3fV"
+                  " therm_1=%.2fC therm_2=%.2f Idx=%d"
+                  " spec_1=%.4f spec_2=%.4f spec_3=%.4f spec_4=%.4f\n",
+      data.mr_avg, data.bkg, data.peak, data.ratio,
+      data.batt, data.therm_1, data.therm_2, data.indx,
+      data.spec_1, data.spec_2, data.spec_3, data.spec_4);
+  }
 
   buf = "";
   return true;

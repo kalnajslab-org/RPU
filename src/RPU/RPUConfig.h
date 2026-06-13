@@ -25,7 +25,7 @@ constexpr float    CFG_HEATER_HYSTERESIS  =  0.5f;        // [°C] bang-bang dea
 // Report intervals
 // ---------------------------------------------------------------------------
 constexpr uint32_t CFG_RPU_STATUS_INTERVAL_S     = 30UL * 60UL; // [s] LoRa/docking status report
-constexpr uint32_t CFG_CONSOLE_REPORT_INTERVAL_S = 10UL;        // [s] USB serial status print
+constexpr uint32_t CFG_CONSOLE_REPORT_INTERVAL_S = 0UL;         // [s] USB serial status print (0 = off)
 
 // ---------------------------------------------------------------------------
 // Pump back-EMF controller

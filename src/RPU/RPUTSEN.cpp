@@ -1,4 +1,5 @@
 #include "RPUTSEN.h"
+#include "RPUConsole.h"
 
 bool readTSEN(String& data, TSENData& tsen)
 {
@@ -19,6 +20,11 @@ bool readTSEN(String& data, TSENData& tsen)
   tsen.airt_raw  = (uint16_t)strtoul(data.substring(1, 4).c_str(),  NULL, 16);
   tsen.ptemp_raw = (uint32_t)strtoul(data.substring(5, 11).c_str(), NULL, 16);
   tsen.pres_raw  = (uint32_t)strtoul(data.substring(12, 18).c_str(), NULL, 16);
+
+  if (getDebugJsonEnabled()) {
+    Serial.printf("TSEN: airt_raw=%u ptemp_raw=%lu pres_raw=%lu\n",
+      tsen.airt_raw, tsen.ptemp_raw, tsen.pres_raw);
+  }
 
   return true;
 }

@@ -7,6 +7,13 @@
 #include <etl/string.h>
 #include <etl/vector.h>
 
+static bool debug_json_enabled = false;
+
+bool getDebugJsonEnabled()
+{
+  return debug_json_enabled;
+}
+
 void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pump_enabled)
 {
   static etl::string<128> line;
@@ -44,6 +51,7 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         Serial.println("  p        - toggle pump on/off");
         Serial.println("  m        - enter MEASURE state");
         Serial.println("  s        - enter STANDBY state");
+        Serial.println("  d        - toggle debug JSON record print (default off)");
         Serial.println("  w        - reset WDT trigger count in EEPROM to 0");
         Serial.println("  c <s>    - set console status print interval [s]");
         Serial.println("  r <s>    - set RPU status report interval [s]");
@@ -63,6 +71,9 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         enterMeasure(rpu_state);  // enables sensorsEnabled per flags
       } else if (tokens[0] == "s") {
         enterStandby(rpu_state);
+      } else if (tokens[0] == "d") {
+        debug_json_enabled = !debug_json_enabled;
+        Serial.printf("debug JSON record print %s\n", debug_json_enabled ? "ON" : "OFF");
       } else if (tokens[0] == "c") {
         if (tokens.size() < 2) {
           Serial.printf("console status interval: %lus\n", getConsoleStatusInterval());
