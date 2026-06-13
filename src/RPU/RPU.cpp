@@ -133,7 +133,7 @@ void enterError(RPUState& state)
 static constexpr size_t RPU_TM_BUFFER_BYTES = 8192;
 static constexpr size_t RPU_TM_MAX_RECORDS  = RPU_TM_BUFFER_BYTES / RPU_RECORD_BYTES;
 
-static void sendTM()
+static void sendRPURecords()
 {
   static uint8_t tm_buf[RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES];
 
@@ -141,6 +141,8 @@ static void sendTM()
   while (count < RPU_TM_MAX_RECORDS && rpu_records.pop(&tm_buf[count * RPU_RECORD_BYTES], RPU_RECORD_BYTES)) {
     count++;
   }
+
+  DEBUG_SERIAL.printf("sendRPURecords: sending %u record(s)\n", (unsigned)count);
 
   if (count > 0) {
     rpucomm.AssignBinaryTXBuffer(tm_buf, sizeof(tm_buf), count * RPU_RECORD_BYTES);
@@ -170,7 +172,7 @@ static bool dockComms()
 
         case RPU_SEND_RECORDS:
           DEBUG_SERIAL.println("Received RPU_SEND_RECORDS");
-          sendTM();
+          sendRPURecords();
           return false;
 
         case RPU_RESET:
