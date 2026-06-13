@@ -61,10 +61,19 @@ static String   tsenData;
 static TSENData tsenRaw;
 
 // ---------------------------------------------------------------------------
-// GPS / TDLAS serial buffers
+// GPS / TDLAS / Dock serial buffers
 // ---------------------------------------------------------------------------
+static constexpr size_t RPU_TM_BUFFER_BYTES = 8192;
+static constexpr size_t RPU_TM_MAX_RECORDS  = RPU_TM_BUFFER_BYTES / RPU_RECORD_BYTES;
+
 static uint8_t GPS_Serial_Buffer[4096];
 static uint8_t TDLAS_Serial_Buffer[1028];
+
+// Extra TX ring-buffer space for DOCK_SERIAL, sized to hold the largest
+// single TX_Bin() write (a full RPU_TM_MAX_RECORDS-record TM block, ~8186
+// bytes including framing) so that sendRPURecords() doesn't block the main
+// loop while bytes drain out at 115200 baud.
+static uint8_t Dock_Serial_TX_Buffer[RPU_TM_BUFFER_BYTES];
 
 
 // ---------------------------------------------------------------------------
@@ -130,9 +139,6 @@ void enterError(RPUState& state)
 // ---------------------------------------------------------------------------
 // Communications
 // ---------------------------------------------------------------------------
-static constexpr size_t RPU_TM_BUFFER_BYTES = 8192;
-static constexpr size_t RPU_TM_MAX_RECORDS  = RPU_TM_BUFFER_BYTES / RPU_RECORD_BYTES;
-
 static void sendRPURecords()
 {
   static uint8_t tm_buf[RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES];
@@ -528,6 +534,7 @@ void setup()
   TDLAS_SERIAL.addMemoryForRead(TDLAS_Serial_Buffer, sizeof(TDLAS_Serial_Buffer));
   
   DOCK_SERIAL.begin(115200);
+  DOCK_SERIAL.addMemoryForWrite(Dock_Serial_TX_Buffer, sizeof(Dock_Serial_TX_Buffer));
 
   analogReadResolution(12);
   analogReadAveraging(32);
