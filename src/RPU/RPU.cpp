@@ -28,8 +28,8 @@ static float    bat_t_setpoint  = CFG_BATTERY_T_SETPOINT;
 // ---------------------------------------------------------------------------
 // MEASURE parameters (set by RPU_GO_MEASURE command)
 // ---------------------------------------------------------------------------
-static int32_t MeasureDuration = CFG_MEASURE_DURATION;
-static int32_t MeasureRate     = CFG_MEASURE_RATE;
+static int32_t MeasureDurationSecs = CFG_MEASURE_DURATION;
+static int32_t SaveRateSecs     = CFG_REPORT_RATE;
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -59,6 +59,7 @@ static ROPCData opcData;
 static TDLASData tdlasData;
 static String   tsenData;
 static TSENData tsenRaw;
+RPURecord rpu_record;
 
 // ---------------------------------------------------------------------------
 // GPS / TDLAS / Dock serial buffers
@@ -107,6 +108,8 @@ static uint32_t MeasureStartMillis = 0;
 static double   GPSStartLat        = 0.0;
 static double   GPSStartLon        = 0.0;
 static bool     GPSStartCaptured   = false;
+static elapsedMillis measure_timer;
+static elapsedMillis save_timer;
 
 void enterStandby(RPUState& state)
 {
@@ -125,7 +128,9 @@ void enterMeasure(RPUState& state)
   if (sensorsEnabled.rs41)  { digitalWrite(RS41_ENABLE,  HIGH); }
   MeasureStartMillis = millis();
   GPSStartCaptured   = false;
-  RPURecord::resetRotation();
+  measure_timer      = 0;
+  save_timer         = 0;
+  rpu_record.resetRotation();
   state = RPUState::MEASURE;
   Serial.println("Entering MEASURE");
 }
@@ -196,7 +201,7 @@ static bool dockComms()
         case RPU_GO_MEASURE: {
           int8_t OPC_Power = 0, TDLAS_Power = 0, TSEN_Power = 0, RS41_Power = 0;
           float  BatTSetpoint = bat_t_setpoint;
-          tmp1 = rpucomm.RX_GoMeasure(&MeasureDuration, &MeasureRate, &BatTSetpoint,
+          tmp1 = rpucomm.RX_GoMeasure(&MeasureDurationSecs, &SaveRateSecs, &BatTSetpoint,
                                       &OPC_Power, &TDLAS_Power, &TSEN_Power, &RS41_Power);
           rpucomm.TX_Ack(RPU_GO_MEASURE, tmp1);
           if (tmp1) {
@@ -282,11 +287,87 @@ static void tickStandby()
                heater_on_ticks, heater_total_ticks);
 }
 
+static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, bool rs41_ok, bool heater_on)
+{
+
+  // Fast fields (period = 1)
+  rpu_record.setElapsedS((millis() - MeasureStartMillis) / 1000);
+  rpu_record.setAlt(profiler_gps.altitude.meters());
+  rpu_record.setLatDelta(GPSStartCaptured ? (profiler_gps.location.lat() - GPSStartLat) : 0.0);
+  rpu_record.setLonDelta(GPSStartCaptured ? (profiler_gps.location.lng() - GPSStartLon) : 0.0);
+  rpu_record.setSats((uint8_t)profiler_gps.satellites.value());
+  rpu_record.setGpsAge(profiler_gps.location.age() / 1000);
+
+  rpu_record.setOpcD300(opcData.d300);
+  rpu_record.setOpcD2000(opcData.d2000);
+
+  rpu_record.setTsenAirt(tsenRaw.airt_raw);
+  rpu_record.setTsenPres(tsenRaw.pres_raw);
+  rpu_record.setTsenPtemp(tsenRaw.ptemp_raw);
+
+  rpu_record.setRs41AirT(    rs41_ok ? sensor_data.air_temp_degC     : 0.0f);
+  rpu_record.setRs41Pres(    rs41_ok ? sensor_data.pres_mb           : 0.0f);
+  rpu_record.setRs41Humidity(rs41_ok ? sensor_data.humdity_percent   : 0.0f);
+  rpu_record.setRs41HSensorT(rs41_ok ? sensor_data.hsensor_temp_degC : 0.0f);
+
+  rpu_record.setTdlasMrAvg(tdlasData.mr_avg);
+  rpu_record.setTdlasBkg(tdlasData.bkg);
+  rpu_record.setTdlasPeak(tdlasData.peak);
+  rpu_record.setTdlasRatio(tdlasData.ratio);
+
+  // Slow / round-robin fields (period = 8)
+  rpu_record.setOpcD500(opcData.d500);
+  rpu_record.setOpcD700(opcData.d700);
+  rpu_record.setOpcD1000(opcData.d1000);
+  rpu_record.setOpcD3000(opcData.d3000);
+  rpu_record.setOpcD5000(opcData.d5000);
+  rpu_record.setOpcD2500(opcData.d2500);
+
+  rpu_record.setRs41MagXY(rs41_ok ? sensor_data.mag_hdgXY_deg : 0);
+  rpu_record.setBemfV(pump.bemf_v);
+
+  rpu_record.setTdlasSpec1(tdlasData.spec_1);
+  rpu_record.setTdlasSpec2(tdlasData.spec_2);
+  rpu_record.setTdlasSpec3(tdlasData.spec_3);
+  rpu_record.setTdlasSpec4(tdlasData.spec_4);
+
+  rpu_record.setTsenI(tsen_i);
+  rpu_record.setOpcI(opc_i);
+  rpu_record.setPumpI(pump_i);
+  rpu_record.setTdlasI(tdlas_i);
+  rpu_record.setV5V(v_5V);
+
+  rpu_record.setBatT(bat_t);
+  rpu_record.setPumpT(pump_t);
+  rpu_record.setPcbT(pcb_t);
+  rpu_record.setBatV(bat_v);
+  rpu_record.setHeaterStat(heater_on ? 0x1 : 0x0);
+
+  if (!rpu_records.push(rpu_record)) {
+    Serial.println("WARNING: rpu_records buffer full — record dropped");
+  }
+
+  rpu_record.advanceRotation();
+
+  if (getDebugJsonEnabled()) {
+    uint8_t record_buf[RPU_RECORD_BYTES];
+    rpu_record.encode(record_buf, sizeof(record_buf));
+
+    RPURecord decoded_record;
+    decoded_record.decode(record_buf, sizeof(record_buf));
+    Serial.println(decoded_record.toJSON());
+  }
+}
+
 static void tickMeasure()
 {
-  static elapsedMillis tick_timer;
-  if (tick_timer < 1000) { return; }
-  tick_timer = (uint32_t)tick_timer % 1000;
+  if (measure_timer < 1000) {
+    return;
+  }
+  measure_timer = (uint32_t)measure_timer % 1000;
+
+  // Saved-record cadence is independent of the 1 Hz sampling above.
+  uint32_t save_interval_ms = (uint32_t)(SaveRateSecs > 0 ? SaveRateSecs : 1) * 1000;
 
   // --- Temperatures ------------------------------------------------------------
   updateTemperatures(TempBattery, TempPCB, TempPump, bat_t, pcb_t, pump_t);
@@ -294,30 +375,6 @@ static void tickMeasure()
   // --- RS41 Radiosonde -------------------------------------------------------
   RS41::RS41SensorData_t sensor_data = rs41.decoded_sensor_data(false);
   bool rs41_ok = sensor_data.valid;
-
-  if (0) // Debug print of RS41 sensor data
-  {
-    Serial.printf("RS41: frame=%lu air_temp=%.2fC humidity=%.2f%% hsensor_temp=%.2fC pres=%.2fmb "
-                  "int_temp=%.2fC status=%u err=%u pcb_supply=%.3fV lsm303_temp=%.2fC heater=%d "
-                  "hdgXY=%ld hdgXZ=%ld hdgYZ=%ld accelX=%ld accelY=%ld accelZ=%ld\n",
-      (unsigned long)sensor_data.frame_count,
-      sensor_data.air_temp_degC,
-      sensor_data.humdity_percent,
-      sensor_data.hsensor_temp_degC,
-      sensor_data.pres_mb,
-      sensor_data.internal_temp_degC,
-      sensor_data.module_status,
-      sensor_data.module_error,
-      sensor_data.pcb_supply_V,
-      sensor_data.lsm303_temp_degC,
-      sensor_data.pcb_heater_on,
-      sensor_data.mag_hdgXY_deg,
-      sensor_data.mag_hdgXZ_deg,
-      sensor_data.mag_hdgYZ_deg,
-      sensor_data.accelX_mG,
-      sensor_data.accelY_mG,
-      sensor_data.accelZ_mG);
-  }
 
   // --- OPC -------------------------------------------------------------------
   bool gotOPC = readOPC(opcData);
@@ -340,130 +397,15 @@ static void tickMeasure()
   adjustPump(pump, bat_v);
   bool heater_on = adjustHeaters(bat_t, bat_t_setpoint);
 
-  // --- Write combined data line to SD ----------------------------------------
-  // Single CSV row containing all collected variables.
-  // Fields: serial_hex, elapsed_ms,
-  //         VBat, vin, charge_i, v_5V, pump_i,
-  //         opc_i, tsen_i, tdlas_i, heater_i, pump.bemf_v, pump.pwm,
-  //         GPS_lat, GPS_lng, GPS_alt_m, GPS_satellites, GPS_date, GPS_time, GPS_age_s,
-  //         pcb_t, pump_t, bat_t,
-  //         ROPC_time, d300, d500, d700, d1000, d2000, d2500, d3000, d5000, OPC_alarm,
-  //         TDLAS_mr_avg, TDLAS_bkg, TDLAS_peak, TDLAS_ratio, TDLAS_batt, TDLAS_therm_1, TDLAS_therm_2, TDLAS_indx, TDLAS_spec_1..4,
-  //         RS41_frame, RS41_air_temp, RS41_humidity, RS41_hsensor_temp, RS41_pres,
-  //         RS41_internal_temp, RS41_module_status, RS41_module_error, RS41_pcb_supply_V,
-  //         RS41_lsm303_temp, RS41_pcb_heater_on,
-  //         RS41_mag_hdgXY, RS41_mag_hdgXZ, RS41_mag_hdgYZ,
-  //         RS41_accelX, RS41_accelY, RS41_accelZ
-  char DataLine[960];
-  snprintf(DataLine, sizeof(DataLine),
-    "%04X,%lu,"
-    "%.3f,%.3f,%.3f,%.3f,%.3f,"
-    "%.3f,%.3f,%.3f,%.3f,%.3f,%d,"
-    "%.6f,%.6f,%.2f,%lu,%lu,%lu,%lu,"
-    "%.2f,%.2f,%.2f,"
-    "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,"
-    "%.4f,%.4f,%.4f,%.6f,%.3f,%.2f,%.2f,%d,%.4f,%.4f,%.4f,%.4f,"
-    "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%u,%u,%.3f,%.2f,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
-    rpu_id, millis(),
-    bat_v, vin, charge_i, v_5V, pump_i,
-    opc_i, tsen_i, tdlas_i, heater_i, pump.bemf_v, pump.pwm,
-    profiler_gps.location.lat(), profiler_gps.location.lng(), profiler_gps.altitude.meters(),
-    profiler_gps.satellites.value(), profiler_gps.date.value(), profiler_gps.time.value(), profiler_gps.location.age() / 1000,
-    pcb_t, pump_t, bat_t,
-    opcData.ROPC_time, opcData.d300, opcData.d500, opcData.d700, opcData.d1000,
-    opcData.d2000, opcData.d2500, opcData.d3000, opcData.d5000, opcData.alarm,
-    tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
-    tdlasData.batt, tdlasData.therm_1, tdlasData.therm_2,
-    tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4,
-    sensor_data.valid ? (unsigned long)sensor_data.frame_count  : 0UL,
-    sensor_data.valid ? sensor_data.air_temp_degC               : 0.0f,
-    sensor_data.valid ? sensor_data.humdity_percent             : 0.0f,
-    sensor_data.valid ? sensor_data.hsensor_temp_degC           : 0.0f,
-    sensor_data.valid ? sensor_data.pres_mb                     : 0.0f,
-    sensor_data.valid ? sensor_data.internal_temp_degC          : 0.0f,
-    sensor_data.valid ? sensor_data.module_status               : 0u,
-    sensor_data.valid ? sensor_data.module_error                : 0u,
-    sensor_data.valid ? sensor_data.pcb_supply_V                : 0.0f,
-    sensor_data.valid ? sensor_data.lsm303_temp_degC            : 0.0f,
-    sensor_data.valid ? sensor_data.pcb_heater_on               : 0,
-    sensor_data.valid ? sensor_data.mag_hdgXY_deg               : 0.0f,
-    sensor_data.valid ? sensor_data.mag_hdgXZ_deg               : 0.0f,
-    sensor_data.valid ? sensor_data.mag_hdgYZ_deg               : 0.0f,
-    sensor_data.valid ? sensor_data.accelX_mG                   : 0.0f,
-    sensor_data.valid ? sensor_data.accelY_mG                   : 0.0f,
-    sensor_data.valid ? sensor_data.accelZ_mG                   : 0.0f);
+  // --- Build and save RPURecord (gated by SaveRateSecs and MeasureDurationSecs) ----
+  bool withinMeasureDuration = (MeasureDurationSecs == 0) ||
+      ((millis() - MeasureStartMillis) < (uint32_t)MeasureDurationSecs * 1000UL);
 
-  //Serial.println(DataLine);
-
-  // --- Build RPURecord ---------------------------------------------------------
-  RPURecord record;
-
-  // Fast fields (period = 1)
-  record.setElapsedS((millis() - MeasureStartMillis) / 1000);
-  record.setAlt(profiler_gps.altitude.meters());
-  record.setLatDelta(GPSStartCaptured ? (profiler_gps.location.lat() - GPSStartLat) : 0.0);
-  record.setLonDelta(GPSStartCaptured ? (profiler_gps.location.lng() - GPSStartLon) : 0.0);
-  record.setSats((uint8_t)profiler_gps.satellites.value());
-  record.setGpsAge(profiler_gps.location.age() / 1000);
-
-  record.setOpcD300(opcData.d300);
-  record.setOpcD2000(opcData.d2000);
-
-  record.setTsenAirt(tsenRaw.airt_raw);
-  record.setTsenPres(tsenRaw.pres_raw);
-  record.setTsenPtemp(tsenRaw.ptemp_raw);
-
-  record.setRs41AirT(    rs41_ok ? sensor_data.air_temp_degC     : 0.0f);
-  record.setRs41Pres(    rs41_ok ? sensor_data.pres_mb           : 0.0f);
-  record.setRs41Humidity(rs41_ok ? sensor_data.humdity_percent   : 0.0f);
-  record.setRs41HSensorT(rs41_ok ? sensor_data.hsensor_temp_degC : 0.0f);
-
-  record.setTdlasMrAvg(tdlasData.mr_avg);
-  record.setTdlasBkg(tdlasData.bkg);
-  record.setTdlasPeak(tdlasData.peak);
-  record.setTdlasRatio(tdlasData.ratio);
-
-  // Slow / round-robin fields (period = 8)
-  record.setOpcD500(opcData.d500);
-  record.setOpcD700(opcData.d700);
-  record.setOpcD1000(opcData.d1000);
-  record.setOpcD3000(opcData.d3000);
-  record.setOpcD5000(opcData.d5000);
-  record.setOpcD2500(opcData.d2500);
-
-  record.setRs41MagXY(rs41_ok ? sensor_data.mag_hdgXY_deg : 0);
-  record.setBemfV(pump.bemf_v);
-
-  record.setTdlasSpec1(tdlasData.spec_1);
-  record.setTdlasSpec2(tdlasData.spec_2);
-  record.setTdlasSpec3(tdlasData.spec_3);
-  record.setTdlasSpec4(tdlasData.spec_4);
-
-  record.setTsenI(tsen_i);
-  record.setOpcI(opc_i);
-  record.setPumpI(pump_i);
-  record.setTdlasI(tdlas_i);
-  record.setV5V(v_5V);
-
-  record.setBatT(bat_t);
-  record.setPumpT(pump_t);
-  record.setPcbT(pcb_t);
-  record.setBatV(bat_v);
-  record.setHeaterStat(heater_on ? 0x1 : 0x0);
-
-  if (!rpu_records.push(record)) {
-    Serial.println("WARNING: rpu_records buffer full — record dropped");
-  }
-
-  RPURecord::advanceRotation();
-
-  if (getDebugJsonEnabled()) {
-    uint8_t record_buf[RPU_RECORD_BYTES];
-    record.encode(record_buf, sizeof(record_buf));
-
-    RPURecord decoded_record;
-    decoded_record.decode(record_buf, sizeof(record_buf));
-    Serial.println(decoded_record.toJSON());
+  if (save_timer >= save_interval_ms) {
+    save_timer = (uint32_t)save_timer % save_interval_ms;
+    if (withinMeasureDuration) {
+      buildAndSaveRPURecord(sensor_data, rs41_ok, heater_on);
+    }
   }
 }
 
@@ -635,7 +577,7 @@ void loop()
 
   
   // The state can be changed from the console
-  consoleRead(rpu_state, sensorsEnabled, pump.enabled);
+  consoleRead(rpu_state, sensorsEnabled, pump.enabled, MeasureDurationSecs, SaveRateSecs);
 
 
   //----------------------------------------------------

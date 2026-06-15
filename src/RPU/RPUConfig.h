@@ -51,5 +51,5 @@ constexpr int CFG_EEPROM_WDT_COUNT_ADDR = 0;  // uint32_t: lifetime watchdog res
 // ---------------------------------------------------------------------------
 // MEASURE defaults
 // ---------------------------------------------------------------------------
-constexpr int32_t  CFG_MEASURE_DURATION   = 0;            // [s] 0 = run until commanded to STANDBY
-constexpr int32_t  CFG_MEASURE_RATE       = 1;            // [s] measurement interval
+constexpr int32_t  CFG_MEASURE_DURATION   = 0;            // [s] 0 = run until commanded to STANDBY, record buffer is filled
+constexpr int32_t  CFG_REPORT_RATE        = 1;            // [s] measurement interval

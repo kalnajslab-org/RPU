@@ -14,7 +14,8 @@ bool getDebugJsonEnabled()
   return debug_json_enabled;
 }
 
-void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pump_enabled)
+void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pump_enabled,
+                  int32_t& measure_duration_s, int32_t& save_rate_s)
 {
   static etl::string<128> line;
 
@@ -49,7 +50,7 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         Serial.println("  h        - help");
         Serial.println("  b        - reboot");
         Serial.println("  p        - toggle pump on/off");
-        Serial.println("  m        - enter MEASURE state");
+        Serial.println("  m <dur> <rate> - enter MEASURE state (optional duration[s], save rate[s])");
         Serial.println("  s        - enter STANDBY state");
         Serial.println("  d        - toggle debug JSON record print (default off)");
         Serial.println("  w        - reset WDT trigger count in EEPROM to 0");
@@ -67,6 +68,13 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         setWDTCount(0);
         Serial.println("WDT count reset to 0");
       } else if (tokens[0] == "m") {
+        if (tokens.size() >= 2) {
+          measure_duration_s = atol(tokens[1].c_str());
+        }
+        if (tokens.size() >= 3) {
+          save_rate_s = atol(tokens[2].c_str());
+        }
+        Serial.printf("MEASURE duration=%lds rate=%lds\n", (long)measure_duration_s, (long)save_rate_s);
         sensorsEnabled.opc = sensorsEnabled.tdlas = sensorsEnabled.tsen = sensorsEnabled.rs41 = true;
         enterMeasure(rpu_state);  // enables sensorsEnabled per flags
       } else if (tokens[0] == "s") {
