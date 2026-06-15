@@ -68,15 +68,24 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
         setWDTCount(0);
         Serial.println("WDT count reset to 0");
       } else if (tokens[0] == "m") {
+        int32_t new_duration = measure_duration_s;
+        int32_t new_rate     = save_rate_s;
         if (tokens.size() >= 2) {
-          measure_duration_s = atol(tokens[1].c_str());
+          new_duration = atol(tokens[1].c_str());
         }
         if (tokens.size() >= 3) {
-          save_rate_s = atol(tokens[2].c_str());
+          new_rate = atol(tokens[2].c_str());
         }
-        Serial.printf("MEASURE duration=%lds rate=%lds\n", (long)measure_duration_s, (long)save_rate_s);
-        sensorsEnabled.opc = sensorsEnabled.tdlas = sensorsEnabled.tsen = sensorsEnabled.rs41 = true;
-        enterMeasure(rpu_state);  // enables sensorsEnabled per flags
+        if (new_duration != 0 && new_duration <= new_rate) {
+          Serial.printf("ERROR: duration (%lds) must be 0 or greater than rate (%lds)\n",
+                         (long)new_duration, (long)new_rate);
+        } else {
+          measure_duration_s = new_duration;
+          save_rate_s        = new_rate;
+          Serial.printf("MEASURE duration=%lds rate=%lds\n", (long)measure_duration_s, (long)save_rate_s);
+          sensorsEnabled.opc = sensorsEnabled.tdlas = sensorsEnabled.tsen = sensorsEnabled.rs41 = true;
+          enterMeasure(rpu_state);  // enables sensorsEnabled per flags
+        }
       } else if (tokens[0] == "s") {
         enterStandby(rpu_state);
       } else if (tokens[0] == "d") {

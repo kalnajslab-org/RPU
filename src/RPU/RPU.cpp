@@ -201,11 +201,22 @@ static bool dockComms()
         case RPU_GO_MEASURE: {
           int8_t OPC_Power = 0, TDLAS_Power = 0, TSEN_Power = 0, RS41_Power = 0;
           float  BatTSetpoint = bat_t_setpoint;
-          tmp1 = rpucomm.RX_GoMeasure(&MeasureDurationSecs, &SaveRateSecs, &BatTSetpoint,
+          int32_t new_duration = MeasureDurationSecs;
+          int32_t new_rate     = SaveRateSecs;
+          tmp1 = rpucomm.RX_GoMeasure(&new_duration, &new_rate, &BatTSetpoint,
                                       &OPC_Power, &TDLAS_Power, &TSEN_Power, &RS41_Power);
+          if (tmp1 && new_duration != 0 && new_duration <= new_rate) {
+            DEBUG_SERIAL.printf("RPU_GO_MEASURE: duration (%lds) must be 0 or greater than rate (%lds); setting duration to %lds\n",
+                                 (long)new_duration, (long)new_rate, (long)(new_rate + 1));
+            new_duration = new_rate + 1;
+          }
           rpucomm.TX_Ack(RPU_GO_MEASURE, tmp1);
           if (tmp1) {
             DEBUG_SERIAL.println("Received RPU_GO_MEASURE");
+            MeasureDurationSecs  = new_duration;
+            SaveRateSecs         = new_rate;
+            DEBUG_SERIAL.printf("MEASURE duration=%lds rate=%lds\n",
+                                 (long)MeasureDurationSecs, (long)SaveRateSecs);
             bat_t_setpoint       = BatTSetpoint;
             sensorsEnabled.opc   = OPC_Power;
             sensorsEnabled.tdlas = TDLAS_Power;
@@ -397,15 +408,17 @@ static void tickMeasure()
   adjustPump(pump, bat_v);
   bool heater_on = adjustHeaters(bat_t, bat_t_setpoint);
 
-  // --- Build and save RPURecord (gated by SaveRateSecs and MeasureDurationSecs) ----
-  bool withinMeasureDuration = (MeasureDurationSecs == 0) ||
-      ((millis() - MeasureStartMillis) < (uint32_t)MeasureDurationSecs * 1000UL);
-
+  // --- Build and save RPURecord (gated by SaveRateSecs) -----------------------
   if (save_timer >= save_interval_ms) {
     save_timer = (uint32_t)save_timer % save_interval_ms;
-    if (withinMeasureDuration) {
-      buildAndSaveRPURecord(sensor_data, rs41_ok, heater_on);
-    }
+    buildAndSaveRPURecord(sensor_data, rs41_ok, heater_on);
+  }
+
+  // --- End MEASURE once the configured duration has elapsed (0 = unlimited) ----
+  if (MeasureDurationSecs != 0 &&
+      (millis() - MeasureStartMillis) >= (uint32_t)MeasureDurationSecs * 1000UL) {
+    Serial.println("MEASURE duration reached");
+    enterStandby(rpu_state);
   }
 }
 
