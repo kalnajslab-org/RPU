@@ -104,6 +104,12 @@ String SerialString = "";
 ROPCData opcData;
 TDLASData tdlasData;
 
+// ---------------------------------------------------------------------------
+// TDLAS thermal protection
+// ---------------------------------------------------------------------------
+static bool          tdlas_cooling_down   = false;
+static elapsedMillis tdlas_cooldown_timer;
+
 
 // =============================================================================
 // AdjustPump
@@ -443,7 +449,7 @@ void parseCommand(const String& commandToParse)
     int onOff = arg ? parseOnOff(arg) : -1;
     if (onOff == 1)
     {
-      TDLAS_SERIAL.begin(9600);
+      TDLAS_SERIAL.begin(115200);
       digitalWrite(TDLAS_ENABLE, HIGH);
       Serial.println("TDLAS enabled");
     }
@@ -713,23 +719,53 @@ void loop()
   Serial.println();
 
   // --- TDLAS -----------------------------------------------------------------
-  
+  if (tdlas_cooling_down) {
+    if (tdlas_cooldown_timer >= 120000UL) {
+      TDLAS_SERIAL.begin(115200);
+      TDLAS_SERIAL.addMemoryForRead(TDLAS_Serial_Buffer, sizeof(TDLAS_Serial_Buffer));
+      digitalWrite(TDLAS_ENABLE, HIGH);
+      tdlas_cooling_down = false;
+      Serial.println("TDLAS thermal cooldown complete — re-enabling");
+    } else {
+      Serial.printf("TDLAS thermal cooldown: %.0fs remaining\n",
+                    (120000UL - (uint32_t)tdlas_cooldown_timer) / 1000.0f);
+    }
+  }
+
   while (TDLAS_SERIAL.available() > 0)
   {
     char c = TDLAS_SERIAL.read();
-    //Serial.write(c); // Echo TDLAS string as it's received for debugging
-    if (c == '\n') break;
+    Serial.write(c); // Echo TDLAS string as it's received for debugging
     TDLASString += c;
-  }
-  if (parseTDLASString(TDLASString, tdlasData))
-  {
-    
-    Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f batt=%.3fV therm_1=%.2fC Laser T=%.2f Bits, Idx=%d, spec_1=%.4f, spec_2=%.4f, spec_3=%.4f, spec_4=%.4f\n",
-      tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
-      tdlasData.batt, tdlasData.therm_1, tdlasData.therm_2, tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4);
-  }
-  TDLASString = "";
+    if (c == '\n')
+    {
+      TDLAS_SERIAL.clear();
+      if (parseTDLASString(TDLASString, tdlasData))
+      {
+      
+        Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f ext_therm=%.3fV Laser_T=%.2fC Shutdown=%d Bits, Idx=%d, spec_1=%.4f, spec_2=%.4f, spec_3=%.4f, spec_4=%.4f\n",
+        tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
+        tdlasData.batt, tdlasData.therm_1, tdlasData.therm_2, tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4);
 
+      if (!tdlas_cooling_down && tdlasData.therm_2 > 30.0f) {
+          pinMode(TDLAS_TX_PIN, INPUT);
+          pinMode(TDLAS_RX_PIN, INPUT);
+          digitalWrite(TDLAS_ENABLE, LOW);
+          tdlas_cooling_down = true;
+          tdlas_cooldown_timer = 0;
+          Serial.printf("TDLAS therm_2=%.2f exceeds 30 — powering down for 120s\n", tdlasData.therm_2);
+      }
+  
+
+      }
+      TDLASString = "";
+      break;
+    }
+  }
+  
+  
+
+  
   // --- Debug serial command input --------------------------------------------
   while (Serial.available())
   {
