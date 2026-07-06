@@ -600,7 +600,7 @@ void setup()
         "RS41_frame,RS41_air_temp,RS41_humidity,RS41_hsensor_temp,RS41_pres,"
         "RS41_internal_temp,RS41_module_status,RS41_module_error,RS41_pcb_supply_V,"
         "RS41_lsm303_temp,RS41_pcb_heater_on,"
-        "RS41_mag_hdgXY,RS41_mag_hdgXZ,RS41_mag_hdgYZ,"
+        "RS41_roll,RS41_pitch,RS41_heading,"
         "RS41_accelX,RS41_accelY,RS41_accelZ");
       dataFile.close();
     }
@@ -666,7 +666,7 @@ void loop()
   {
     Serial.printf("RS41: frame=%lu air_temp=%.2fC humidity=%.2f%% hsensor_temp=%.2fC pres=%.2fmb "
                   "int_temp=%.2fC status=%u err=%u pcb_supply=%.3fV lsm303_temp=%.2fC heater=%d "
-                  "hdgXY=%.2f hdgXZ=%.2f hdgYZ=%.2f accelX=%.2f accelY=%.2f accelZ=%.2f\n",
+                  "roll=%.2f pitch=%.2f heading=%.2f accelX=%d accelY=%d accelZ=%d\n",
       (unsigned long)sensor_data.frame_count,
       sensor_data.air_temp_degC,
       sensor_data.humdity_percent,
@@ -678,12 +678,12 @@ void loop()
       sensor_data.pcb_supply_V,
       sensor_data.lsm303_temp_degC,
       sensor_data.pcb_heater_on,
-      sensor_data.mag_hdgXY_deg,
-      sensor_data.mag_hdgXZ_deg,
-      sensor_data.mag_hdgYZ_deg,
-      sensor_data.accelX_mG,
-      sensor_data.accelY_mG,
-      sensor_data.accelZ_mG);
+      sensor_data.roll_deg,
+      sensor_data.pitch_deg,
+      sensor_data.heading_deg,
+      sensor_data.accelX_mg,
+      sensor_data.accelY_mg,
+      sensor_data.accelZ_mg);
   }
 
   // --- Gondola serial loopback test ------------------------------------------
@@ -841,7 +841,7 @@ void loop()
   //         RS41_frame, RS41_air_temp, RS41_humidity, RS41_hsensor_temp, RS41_pres,
   //         RS41_internal_temp, RS41_module_status, RS41_module_error, RS41_pcb_supply_V,
   //         RS41_lsm303_temp, RS41_pcb_heater_on,
-  //         RS41_mag_hdgXY, RS41_mag_hdgXZ, RS41_mag_hdgYZ,
+  //         RS41_roll, RS41_pitch, RS41_heading,
   //         RS41_accelX, RS41_accelY, RS41_accelZ
   char DataLine[960];
   snprintf(DataLine, sizeof(DataLine),
@@ -875,12 +875,12 @@ void loop()
     sensor_data.valid ? sensor_data.pcb_supply_V                : 0.0f,
     sensor_data.valid ? sensor_data.lsm303_temp_degC            : 0.0f,
     sensor_data.valid ? sensor_data.pcb_heater_on               : 0,
-    sensor_data.valid ? sensor_data.mag_hdgXY_deg               : 0.0f,
-    sensor_data.valid ? sensor_data.mag_hdgXZ_deg               : 0.0f,
-    sensor_data.valid ? sensor_data.mag_hdgYZ_deg               : 0.0f,
-    sensor_data.valid ? sensor_data.accelX_mG                   : 0.0f,
-    sensor_data.valid ? sensor_data.accelY_mG                   : 0.0f,
-    sensor_data.valid ? sensor_data.accelZ_mG                   : 0.0f);
+    sensor_data.valid ? sensor_data.roll_deg                    : 0.0f,
+    sensor_data.valid ? sensor_data.pitch_deg                   : 0.0f,
+    sensor_data.valid ? sensor_data.heading_deg                 : 0.0f,
+    sensor_data.valid ? sensor_data.accelX_mg                   : 0.0f,
+    sensor_data.valid ? sensor_data.accelY_mg                   : 0.0f,
+    sensor_data.valid ? sensor_data.accelZ_mg                   : 0.0f);
 
   dataFile.println(DataLine);
 

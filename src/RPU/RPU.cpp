@@ -334,7 +334,7 @@ static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, boo
   rpu_record.setOpcD5000(opcData.d5000);
   rpu_record.setOpcD2500(opcData.d2500);
 
-  rpu_record.setRs41MagXY(rs41_ok ? sensor_data.mag_hdgXY_deg : 0);
+  rpu_record.setRs41Hdg(rs41_ok ? sensor_data.heading_deg : 0);
   rpu_record.setBemfV(pump.bemf_v);
 
   rpu_record.setTdlasSpec1(tdlasData.spec_1);
