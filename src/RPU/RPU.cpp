@@ -65,7 +65,7 @@ RPURecord rpu_record;
 // GPS / TDLAS / Dock serial buffers
 // ---------------------------------------------------------------------------
 static constexpr size_t RPU_TM_MAX_RECORDS  = 120;
-static constexpr size_t RPU_TM_BUFFER_BYTES = RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES;
+static constexpr size_t RPU_TM_BUFFER_BYTES = RPU_BLOCK_HDR_BYTES + RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES;
 
 static uint8_t GPS_Serial_Buffer[4096];
 static uint8_t TDLAS_Serial_Buffer[1028];
@@ -147,14 +147,14 @@ void enterError(RPUState& state)
 // Records popped from rpu_records but not yet ACKed by the dock. Held here so
 // a NAK (or lost ACK) can be retransmitted from the same buffer instead of
 // popping (and thereby losing) the next batch from the FIFO.
-static uint8_t tm_buf[RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES];
+static uint8_t tm_buf[RPU_TM_BUFFER_BYTES];
 static size_t  tm_pending_records = 0;
 
 static void sendRPURecords()
 {
   if (tm_pending_records == 0) {
     while (tm_pending_records < RPU_TM_MAX_RECORDS &&
-           rpu_records.pop(&tm_buf[tm_pending_records * RPU_RECORD_BYTES], RPU_RECORD_BYTES)) {
+           rpu_records.pop(&tm_buf[RPU_BLOCK_HDR_BYTES + tm_pending_records * RPU_RECORD_BYTES], RPU_RECORD_BYTES)) {
       tm_pending_records++;
     }
   }
@@ -162,7 +162,8 @@ static void sendRPURecords()
   DEBUG_SERIAL.printf("sendRPURecords: sending %u record(s)\n", (unsigned)tm_pending_records);
 
   if (tm_pending_records > 0) {
-    rpucomm.AssignBinaryTXBuffer(tm_buf, sizeof(tm_buf), tm_pending_records * RPU_RECORD_BYTES);
+    rpu_record.encodeBlockHeader(tm_buf, RPU_BLOCK_HDR_BYTES);
+    rpucomm.AssignBinaryTXBuffer(tm_buf, sizeof(tm_buf), RPU_BLOCK_HDR_BYTES + tm_pending_records * RPU_RECORD_BYTES);
     rpucomm.TX_Bin(RPU_PROFILE_RECORD);
   } else {
     rpucomm.TX_ASCII(RPU_NO_MORE_RECORDS);
@@ -402,6 +403,18 @@ static void tickMeasure()
     GPSStartLat      = profiler_gps.location.lat();
     GPSStartLon      = profiler_gps.location.lng();
     GPSStartCaptured = true;
+
+    rpu_record.setGpsLat(GPSStartLat);
+    rpu_record.setGpsLon(GPSStartLon);
+
+    struct tm t = {};
+    t.tm_year = profiler_gps.date.year() - 1900;
+    t.tm_mon  = profiler_gps.date.month() - 1;
+    t.tm_mday = profiler_gps.date.day();
+    t.tm_hour = profiler_gps.time.hour();
+    t.tm_min  = profiler_gps.time.minute();
+    t.tm_sec  = profiler_gps.time.second();
+    rpu_record.setEpochTime((uint32_t)mktime(&t));
   }
 
   // --- Control loops ---------------------------------------------------------
