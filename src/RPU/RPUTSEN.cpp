@@ -21,7 +21,7 @@ bool readTSEN(String& data, TSENData& tsen)
   tsen.ptemp_raw = (uint32_t)strtoul(data.substring(5, 11).c_str(), NULL, 16);
   tsen.pres_raw  = (uint32_t)strtoul(data.substring(12, 18).c_str(), NULL, 16);
 
-  if (getDebugJsonEnabled()) {
+  if (getDebugPrintEnabled()) {
     Serial.printf("TSEN: airt_raw=%u ptemp_raw=%lu pres_raw=%lu\n",
       tsen.airt_raw, tsen.ptemp_raw, tsen.pres_raw);
   }

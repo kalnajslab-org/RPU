@@ -326,6 +326,13 @@ static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, boo
   rpu_record.setTdlasBkg(tdlasData.bkg);
   rpu_record.setTdlasPeak(tdlasData.peak);
   rpu_record.setTdlasRatio(tdlasData.ratio);
+  rpu_record.setTdlasMaxVmr(tdlasData.max_vmr);
+  rpu_record.setTdlasLaserT(tdlasData.laser_t);
+  rpu_record.setTdlasSpec1(tdlasData.spec_1);
+  rpu_record.setTdlasSpec2(tdlasData.spec_2);
+  rpu_record.setTdlasSpec3(tdlasData.spec_3);
+  rpu_record.setTdlasSpec4(tdlasData.spec_4);
+
 
   // Slow / round-robin fields (period = 8)
   rpu_record.setOpcD500(opcData.d500);
@@ -337,11 +344,6 @@ static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, boo
 
   rpu_record.setRs41Hdg(rs41_ok ? sensor_data.heading_deg : 0);
   rpu_record.setBemfV(pump.bemf_v);
-
-  rpu_record.setTdlasSpec1(tdlasData.spec_1);
-  rpu_record.setTdlasSpec2(tdlasData.spec_2);
-  rpu_record.setTdlasSpec3(tdlasData.spec_3);
-  rpu_record.setTdlasSpec4(tdlasData.spec_4);
 
   rpu_record.setTsenI(tsen_i);
   rpu_record.setOpcI(opc_i);
@@ -361,7 +363,7 @@ static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, boo
 
   rpu_record.advanceRotation();
 
-  if (getDebugJsonEnabled()) {
+  if (getDebugPrintEnabled()) {
     uint8_t record_buf[RPU_RECORD_BYTES];
     rpu_record.encode(record_buf, sizeof(record_buf));
 
@@ -387,6 +389,11 @@ static void tickMeasure()
   // --- RS41 Radiosonde -------------------------------------------------------
   RS41::RS41SensorData_t sensor_data = rs41.decoded_sensor_data(false);
   bool rs41_ok = sensor_data.valid;
+  if (getDebugPrintEnabled()) {
+    Serial.printf("RS41: air_t=%.2fC pres=%.1fmb rh=%.2f%% hsensor_t=%.2fC hdg=%.2fdeg\n",
+      sensor_data.air_temp_degC, sensor_data.pres_mb, sensor_data.humdity_percent,
+      sensor_data.hsensor_temp_degC, sensor_data.heading_deg);
+  }
 
   // --- OPC -------------------------------------------------------------------
   bool gotOPC = readOPC(opcData);

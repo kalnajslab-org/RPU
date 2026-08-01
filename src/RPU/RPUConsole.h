@@ -6,7 +6,7 @@
  * consoleRead() accumulates characters into a line buffer, tokenizes each
  * completed line on spaces and commas (converting to lowercase), and
  * dispatches on the first token.  Supported commands: h (help),
- * m [duration] [rate] (MEASURE), s (STANDBY), d (toggle debug JSON record
+ * m [duration] [rate] (MEASURE), s (STANDBY), d (toggle debug print
  * print), c <s> (console interval), r <s> (report interval).
  *
  * Interval changes are applied via RPUStatus setters so no interval state
@@ -20,4 +20,4 @@ void consoleRead(RPUState& rpu_state, SensorsEnabled_t& sensorsEnabled, bool& pu
 
 // True when the 'd' console command has enabled debug printing of each decoded
 // RPU record as JSON on the USB debug console. Default off.
-bool getDebugJsonEnabled();
+bool getDebugPrintEnabled();

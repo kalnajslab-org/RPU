@@ -108,8 +108,8 @@ struct TDLASData {
   float  peak;    // absorption peak
   float  ratio;   // peak/background ratio
   float  batt;    // battery voltage [V]
-  float  therm_1; // thermistor 1 temperature
-  float  therm_2; // thermistor 2 temperature
+  float  max_vmr; // maximum volume mixing ratio
+  float  laser_t; // laser temperature [°C]
   int8_t indx;    // TDLAS index (0-255)
   float  spec_1;  // TDLAS spectrum value 1
   float  spec_2;  // TDLAS spectrum value 2

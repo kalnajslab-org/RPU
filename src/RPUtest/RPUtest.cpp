@@ -345,8 +345,8 @@ bool parseTDLASString(const String& raw, TDLASData& out)
   out.peak    = atof(tokens[2]);
   out.ratio   = atof(tokens[3]);
   out.batt    = atof(tokens[4]);
-  out.therm_1 = atof(tokens[5]);
-  out.therm_2 = atof(tokens[6]);
+  out.max_vmr = atof(tokens[5]);
+  out.laser_t = atof(tokens[6]);
   out.indx = atof(tokens[7]);
   out.spec_1 = atof(tokens[8]);
   out.spec_2 = atof(tokens[9]);
@@ -743,17 +743,17 @@ void loop()
       if (parseTDLASString(TDLASString, tdlasData))
       {
       
-        Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f ext_therm=%.3fV Laser_T=%.2fC Shutdown=%d Bits, Idx=%d, spec_1=%.4f, spec_2=%.4f, spec_3=%.4f, spec_4=%.4f\n",
+        Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f max_vmr=%.4f Laser_T=%.2fC Shutdown=%d Bits, Idx=%d, spec_1=%.4f, spec_2=%.4f, spec_3=%.4f, spec_4=%.4f\n",
         tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
-        tdlasData.batt, tdlasData.therm_1, tdlasData.therm_2, tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4);
+        tdlasData.batt, tdlasData.max_vmr, tdlasData.laser_t, tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4);
 
-      if (!tdlas_cooling_down && tdlasData.therm_2 > 30.0f) {
+      if (!tdlas_cooling_down && tdlasData.laser_t > 30.0f) {
           pinMode(TDLAS_TX_PIN, INPUT);
           pinMode(TDLAS_RX_PIN, INPUT);
           digitalWrite(TDLAS_ENABLE, LOW);
           tdlas_cooling_down = true;
           tdlas_cooldown_timer = 0;
-          Serial.printf("TDLAS therm_2=%.2f exceeds 30 — powering down for 120s\n", tdlasData.therm_2);
+          Serial.printf("TDLAS laser_t=%.2f exceeds 30 — powering down for 120s\n", tdlasData.laser_t);
       }
   
 
@@ -862,7 +862,7 @@ void loop()
     opcData.ROPC_time, opcData.d300, opcData.d500, opcData.d700, opcData.d1000,
     opcData.d2000, opcData.d2500, opcData.d3000, opcData.d5000, opcData.alarm,
     tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
-    tdlasData.batt, tdlasData.therm_1, tdlasData.therm_2,
+    tdlasData.batt, tdlasData.max_vmr, tdlasData.laser_t,
     tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4,
     sensor_data.valid ? (unsigned long)sensor_data.frame_count  : 0UL,
     sensor_data.valid ? sensor_data.air_temp_degC               : 0.0f,

@@ -63,7 +63,7 @@ bool readOPC(ROPCData& data)
     return false;
   }
 
-  if (getDebugJsonEnabled()) {
+  if (getDebugPrintEnabled()) {
     Serial.printf("ROPC: time=%lu d300=%u d500=%u d700=%u d1000=%u d2000=%u d2500=%u d3000=%u d5000=%u alarm=%u\n",
       data.ROPC_time, data.d300, data.d500, data.d700, data.d1000,
       data.d2000, data.d2500, data.d3000, data.d5000, data.alarm);
