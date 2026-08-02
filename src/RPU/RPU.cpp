@@ -407,6 +407,10 @@ static void tickMeasure()
     Serial.printf("RS41: air_t=%.2fC pres=%.1fmb rh=%.2f%% hsensor_t=%.2fC hdg=%.2fdeg\n",
       sensor_data.air_temp_degC, sensor_data.pres_mb, sensor_data.humdity_percent,
       sensor_data.hsensor_temp_degC, sensor_data.heading_deg);
+    const RS41::RS41StatusFlags_t& f = sensor_data.flags;
+    Serial.printf("RS41 flags: hi_t=%d regen_lo=%d ptu=%d flash=%d lo_v=%d uncal=%d no_p=%d boom=%d\n",
+      f.high_internal_temp, f.regen_temp_low, f.ptu_failure, f.flash_failure,
+      f.low_input_voltage, f.not_calibrated, f.no_pressure_module, f.disconnected_boom);
   }
 
   // --- OPC -------------------------------------------------------------------
