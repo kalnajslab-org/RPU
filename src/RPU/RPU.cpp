@@ -343,6 +343,20 @@ static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, boo
   rpu_record.setOpcD2500(opcData.d2500);
 
   rpu_record.setRs41Hdg(rs41_ok ? sensor_data.heading_deg : 0);
+  if (rs41_ok) {
+    const RS41::RS41StatusFlags_t& f = sensor_data.flags;
+    uint8_t status = (f.high_internal_temp  ? RPU_REC_RS41_HIGH_INTERNAL_TEMP : 0u)
+                   | (f.regen_temp_low      ? RPU_REC_RS41_REGEN_TEMP_LOW     : 0u)
+                   | (f.ptu_failure         ? RPU_REC_RS41_PTU_FAILURE        : 0u)
+                   | (f.flash_failure       ? RPU_REC_RS41_FLASH_FAILURE      : 0u)
+                   | (f.low_input_voltage   ? RPU_REC_RS41_LOW_INPUT_VOLTAGE  : 0u)
+                   | (f.not_calibrated      ? RPU_REC_RS41_NOT_CALIBRATED     : 0u)
+                   | (f.no_pressure_module  ? RPU_REC_RS41_NO_PRESSURE_MODULE : 0u)
+                   | (f.disconnected_boom   ? RPU_REC_RS41_DISCONNECTED_BOOM  : 0u);
+    rpu_record.setRs41Status(status);
+  } else {
+    rpu_record.setRs41Status(0);
+  }
   rpu_record.setBemfV(pump.bemf_v);
 
   rpu_record.setTsenI(tsen_i);
