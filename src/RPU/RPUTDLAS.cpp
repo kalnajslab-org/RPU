@@ -27,8 +27,10 @@ static bool parseTDLASString(const String& raw, TDLASData& out)
     return false;
   }
 
-  Serial.printf("TDLAS parse: mr_avg=%s bkg=%s peak=%s ratio=%s batt=%s max_vmr=%s laser_t=%s indx=%s spec_1=%s spec_2=%s spec_3=%s spec_4=%s\n",
-                tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5], tokens[6], tokens[7], tokens[8], tokens[9], tokens[10], tokens[11]);
+  if (getDebugPrintEnabled()) {
+    Serial.printf("TDLAS parse: mr_avg=%s bkg=%s peak=%s ratio=%s batt=%s max_vmr=%s laser_t=%s indx=%s spec_1=%s spec_2=%s spec_3=%s spec_4=%s\n",
+                  tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5], tokens[6], tokens[7], tokens[8], tokens[9], tokens[10], tokens[11]);
+  }
   out.mr_avg  = atof(tokens[0]);
   out.bkg     = atof(tokens[1]);
   out.peak    = atof(tokens[2]);
