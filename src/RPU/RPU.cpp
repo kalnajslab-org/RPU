@@ -64,7 +64,7 @@ RPURecord rpu_record;
 // ---------------------------------------------------------------------------
 // GPS / TDLAS / Dock serial buffers
 // ---------------------------------------------------------------------------
-static constexpr size_t RPU_TM_MAX_RECORDS  = 100;
+static constexpr size_t RPU_TM_MAX_RECORDS  = 170;
 static constexpr size_t RPU_TM_BUFFER_BYTES = RPU_BLOCK_HDR_BYTES + RPU_TM_MAX_RECORDS * RPU_RECORD_BYTES;
 
 static uint8_t GPS_Serial_Buffer[4096];
@@ -149,6 +149,11 @@ void enterError(RPUState& state)
 // popping (and thereby losing) the next batch from the FIFO.
 static uint8_t tm_buf[RPU_TM_BUFFER_BYTES];
 static size_t  tm_pending_records = 0;
+
+size_t getPendingTMRecordCount()
+{
+  return tm_pending_records;
+}
 
 static void sendRPURecords()
 {
@@ -278,8 +283,8 @@ static bool dockComms()
 
     case ACK_MESSAGE:
       DEBUG_SERIAL.print("ACK/NAK for msg: ");
-      DEBUG_SERIAL.println(rpucomm.ack_id);
-      rpucomm.ack_value ? DEBUG_SERIAL.println("ACK") : DEBUG_SERIAL.println("NAK");
+      DEBUG_SERIAL.print(rpucomm.ack_id);
+      rpucomm.ack_value ? DEBUG_SERIAL.println(" ACK") : DEBUG_SERIAL.println("NAK");
       if (rpucomm.ack_id == RPU_PROFILE_RECORD && rpucomm.ack_value) {
         tm_pending_records = 0;
       }
@@ -501,7 +506,8 @@ void setup()
   TempPump.ManageState(pump_t);
   TempBattery.ManageState(bat_t);
 
-  Serial.println("RATCHuTS Profiling Unit " + getRPUIdentifier(RPU_VERSION));
+  Serial.println("RACHuTS Profiling Unit " + getRPUIdentifier(RPU_VERSION));
+  Serial.printf("CPU frequency: %lu Hz\n", F_CPU_ACTUAL);
 
   // Check for watchdog reset before initializing the WDT, as wdt.begin()
   // clears the reset-cause register.

@@ -21,6 +21,11 @@
 // was caused by the watchdog.  Included in every sendStatus() JSON payload.
 void setWDTCount(uint32_t count);
 
+// Records popped from the FIFO into the pending TX buffer but not yet ACKed
+// by the dock. Defined in RPU.cpp; added to the FIFO size when reporting
+// buf_rec, so the reported count reflects all records still owed to the dock.
+size_t getPendingTMRecordCount();
+
 // ---------------------------------------------------------------------------
 // Interval setters / getters
 // ---------------------------------------------------------------------------
