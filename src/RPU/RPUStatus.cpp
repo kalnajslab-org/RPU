@@ -67,7 +67,7 @@ static RPUPacket buildStatusPacket(
   pkt.setVer(ver);
   pkt.setState((uint8_t)state);
   pkt.setWdtCount((uint8_t)wdt_count);
-  pkt.setBufferedRecords((uint16_t)(rpu_records.size() + getPendingTMRecordCount()));
+  pkt.setBufferedRecords((uint16_t)rpu_records.size());
   pkt.setVin(vin);
   pkt.setV5V(v_5V);
   pkt.setBatV(vbat);
