@@ -6,3 +6,4 @@
 __pycache__/
 include/rpu_version.h
 .DS_Store
+hex/
