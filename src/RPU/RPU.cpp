@@ -133,6 +133,8 @@ void enterMeasure(RPUState& state)
   rpu_record.resetRotation();
   state = RPUState::MEASURE;
   Serial.println("Entering MEASURE");
+  Serial.printf("Sensors enabled: OPC=%d TDLAS=%d TSEN=%d RS41=%d\n",
+    sensorsEnabled.opc, sensorsEnabled.tdlas, sensorsEnabled.tsen, sensorsEnabled.rs41);
 }
 
 void enterError(RPUState& state)
