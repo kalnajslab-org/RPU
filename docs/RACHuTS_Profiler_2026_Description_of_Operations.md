@@ -37,8 +37,29 @@ Outside of the profiler states, there are several global commands that the profi
 
 - The profiler needs to send any data from the buffer on a `SEND_RECORDS` command. The profiler should send the next 8 kB chunk of data (~190 lines), or whatever data is remaining in the buffer, whichever is smaller.
 - If no data is available to send after a `SEND_RECORDS` command then a `NO_MORE_RECORDS` response should be sent.
-- The `BATT_T_SET`, `V_LOW_BATT`, `V_CRIT_BATT`, and `STATUS_RATE` can all be configured via TC.
+- The `BATT_T_SET`, `V_LOW_BATT`, `V_CRIT_BATT`, `STATUS_RATE`, and `SET_TIME` can all be configured via TC.
 - The profiler should send the current status on a `SEND_STATUS` request. This can be used to check for a successful dock, or to inquire as to profiler status from the ground via a TC.
+
+---
+
+## Time Management (RTC)
+
+The RPU's Teensy 4.1 has no battery backup for its onboard real-time clock (RTC), so the RTC does not retain the correct time across a true power cycle.
+
+**Caveat:** uploading firmware via the Teensy Loader also sets the RTC to the host computer's clock, and that value sticks in the RTC hardware until an actual power cycle — it survives a WDT reset or a later reflash. The firmware itself has no way to know this happened: at boot it always assumes the RTC has not been set, and will report "NOT SET" (console `t`, or `RPU_SEND_STATUS`) until GPS or a manual set occurs during that power-up, even while the RTC hardware is silently holding an accurate loader-set time underneath. Don't take "NOT SET" plus a plausible-looking printed time as a contradiction — it means exactly this. Testing the genuine cold-boot (epoch 0) path requires a real power-off, not just a reflash or reset.
+
+Each MEASURE session's block `epoch_time` is set from the following sources, in order of preference:
+
+1. **GPS** — Once the profiler acquires a valid GPS fix during the session, the block's epoch time and the RTC are both set from GPS UTC time. This is authoritative for the remainder of the current power-up.
+2. **RTC** — If the MEASURE session begins before GPS has a fix, the block's epoch time is seeded from the RTC instead, provided the RTC has already been set this power-up (by GPS or manually).
+3. **None** — If neither GPS nor a prior RTC set is available, the block's epoch time is reported as 0.
+
+The RTC can be set manually, for ground testing or pre-flight setup, via:
+
+- The RPU's USB console: `t <yyyy> <mm> <dd> <hh> <mm> <ss>` (UTC). `t` alone prints the current RTC time and whether it has been set.
+- A `SET_TIME` command sent from StratoRACHuTS/ground (epoch seconds, UTC).
+
+Once GPS has set the RTC during a power-up, both manual-set paths above are refused, since a GPS-verified time should not be overwritten by a possibly incorrect manual entry. This lock clears only on the next power-up (the RTC itself has no way to persist across one anyway, absent a battery).
 
 ---
 
