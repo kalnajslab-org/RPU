@@ -1,4 +1,3 @@
-#include <TimeLib.h>
 #include <RS41.h>
 #include <Watchdog_t4.h>
 
@@ -111,6 +110,43 @@ static bool     GPSStartCaptured   = false;
 static elapsedMillis measure_timer;
 static elapsedMillis save_timer;
 
+// ---------------------------------------------------------------------------
+// RTC time source (Teensy 4.1 onboard RTC)
+//
+// This board has no coin-cell backup, so the RTC holds no meaningful value
+// until it is set: either manually via the console 't' command (see
+// RPUConsole) or by the first valid GPS fix of this power-up (see
+// tickMeasure()). There is no ongoing "system clock" — the RTC is only
+// read directly, and only when a block's epoch time is needed and GPS is
+// not yet available (see enterMeasure()).
+//
+// Once GPS has set the RTC, manual sets are refused (isRTCSetByGPS()) so an
+// operator can't clobber a GPS-verified time; this stays true until the
+// next power cycle, since the RTC itself does not survive one.
+// ---------------------------------------------------------------------------
+static bool RTCSet      = false;
+static bool RTCSetByGPS = false;
+
+static time_t getTeensyRTCTime()
+{
+  return Teensy3Clock.get();
+}
+
+bool isRTCSet()
+{
+  return RTCSet;
+}
+
+bool isRTCSetByGPS()
+{
+  return RTCSetByGPS;
+}
+
+void setRTCSetManually()
+{
+  RTCSet = true;
+}
+
 void enterStandby(RPUState& state)
 {
   sensorsEnabled = SensorsEnabled_t{};
@@ -131,6 +167,14 @@ void enterMeasure(RPUState& state)
   measure_timer      = 0;
   save_timer         = 0;
   rpu_record.resetRotation();
+
+  // Seed the block's epoch time from the RTC (if it has been set) in case
+  // GPS never gets a fix this session. GPS time is preferred and will
+  // overwrite this with a more accurate value as soon as a fix is captured
+  // below in tickMeasure(); if the RTC has never been set either, 0 is
+  // reported.
+  rpu_record.setEpochTime(RTCSet ? (uint32_t)getTeensyRTCTime() : 0);
+
   state = RPUState::MEASURE;
   Serial.println("Entering MEASURE");
   Serial.printf("Sensors enabled: OPC=%d TDLAS=%d TSEN=%d RS41=%d\n",
@@ -265,11 +309,26 @@ static bool dockComms()
         case RPU_SET_STATUS_RATE: {
           uint32_t rate = getRPUStatusInterval();
           tmp1 = rpucomm.Get_uint32(&rate);
-          if (tmp1) { 
-            setRPUStatusInterval(rate); 
+          if (tmp1) {
+            setRPUStatusInterval(rate);
           }
           rpucomm.TX_Ack(RPU_SET_STATUS_RATE, tmp1);
           DEBUG_SERIAL.printf("STATUS_RATE=%lu\n", getRPUStatusInterval());
+          return false;
+        }
+
+        case RPU_SET_TIME: {
+          uint32_t epoch = 0;
+          tmp1 = rpucomm.Get_uint32(&epoch);
+          if (tmp1 && isRTCSetByGPS()) {
+            DEBUG_SERIAL.println("RPU_SET_TIME: RTC already set by GPS; refusing manual set");
+            tmp1 = false;
+          } else if (tmp1) {
+            Teensy3Clock.set(epoch);
+            setRTCSetManually();
+          }
+          rpucomm.TX_Ack(RPU_SET_TIME, tmp1);
+          DEBUG_SERIAL.printf("RPU_SET_TIME epoch=%lu applied=%d\n", (unsigned long)epoch, tmp1);
           return false;
         }
 
@@ -441,7 +500,16 @@ static void tickMeasure()
     t.tm_hour = profiler_gps.time.hour();
     t.tm_min  = profiler_gps.time.minute();
     t.tm_sec  = profiler_gps.time.second();
-    rpu_record.setEpochTime((uint32_t)mktime(&t));
+    time_t gps_epoch = mktime(&t);
+    rpu_record.setEpochTime((uint32_t)gps_epoch);
+
+    // Discipline the Teensy RTC with the GPS-derived UTC time so it serves
+    // as an accurate backup for the rest of this power-up. This is
+    // considered authoritative, so manual sets are refused from here on
+    // (see isRTCSetByGPS()).
+    Teensy3Clock.set(gps_epoch);
+    RTCSet      = true;
+    RTCSetByGPS = true;
   }
 
   // --- Control loops ---------------------------------------------------------

@@ -7,7 +7,10 @@
  * completed line on spaces and commas (converting to lowercase), and
  * dispatches on the first token.  Supported commands: h (help),
  * m [duration] [rate] (MEASURE), s (STANDBY), d (toggle debug print
- * print), c <s> (console interval), r <s> (report interval).
+ * print), c <s> (console interval), r <s> (report interval),
+ * t [yyyy mm dd hh mm ss] (print or manually set the RTC time, UTC;
+ * manual sets are refused once GPS has set the RTC — see isRTCSetByGPS()
+ * in RPUTypes.h).
  *
  * Interval changes are applied via RPUStatus setters so no interval state
  * is owned or passed by the caller.
