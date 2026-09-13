@@ -196,6 +196,12 @@ void enterError(RPUState& state)
 static uint8_t tm_buf[RPU_TM_BUFFER_BYTES];
 static size_t  tm_pending_records = 0;
 
+// Set by dockComms() on RPU_REGEN_RS41, consumed by tickMeasure() -- deferred
+// because RS41::recondition() blocks on a serial read (~1s timeout) and
+// re-primes the RS41's RSD polling pipeline, so it must run in place of the
+// normal per-tick decoded_sensor_data() poll, not inline from message dispatch.
+static bool rs41_regen_pending = false;
+
 static void sendRPURecords()
 {
   if (tm_pending_records == 0) {
@@ -244,6 +250,18 @@ static bool dockComms()
           DEBUG_SERIAL.println("Received RPU_RESET - rebooting via WDT");
           delay((CFG_WDT_TIMEOUT_S + 2) * 1000UL);
           return false;
+
+        case RPU_REGEN_RS41: {
+          bool accepted = (rpu_state == RPUState::MEASURE) && sensorsEnabled.rs41;
+          if (accepted) {
+            rs41_regen_pending = true;
+            DEBUG_SERIAL.println("Received RPU_REGEN_RS41 - queued");
+          } else {
+            DEBUG_SERIAL.println("Received RPU_REGEN_RS41 - rejected (RS41 not active)");
+          }
+          rpucomm.TX_Ack(RPU_REGEN_RS41, accepted);
+          return false;
+        }
 
         case RPU_GO_MEASURE: {
           int8_t OPC_Power = 0, TDLAS_Power = 0, TSEN_Power = 0, RS41_Power = 0;
@@ -462,6 +480,11 @@ static void tickMeasure()
   updateTemperatures(TempBattery, TempPCB, TempPump, bat_t, pcb_t, pump_t);
 
   // --- RS41 Radiosonde -------------------------------------------------------
+  if (rs41_regen_pending) {
+    Serial.println("RS41 regeneration initiated");
+    Serial.println(rs41.recondition().c_str());
+    rs41_regen_pending = false;
+  }
   RS41::RS41SensorData_t sensor_data = rs41.decoded_sensor_data(false);
   bool rs41_ok = sensor_data.valid;
   if (getDebugPrintEnabled()) {
