@@ -104,6 +104,43 @@ static RPUState rpu_state = RPUState::STANDBY;
 // MEASURE-session reference state (captured/reset once per GO_MEASURE)
 // ---------------------------------------------------------------------------
 static uint32_t MeasureStartMillis = 0;
+// u-blox GPS dynamic platform model values (UBX-CFG-NAV5 dynModel field).
+#define GPS_DYNMODEL_AIRBORNE_1G 6
+
+// Sets the u-blox receiver's dynamic platform model to "Airborne <1g" by
+// sending a UBX-CFG-NAV5 message. The receiver's default "Portable" model
+// stops reporting valid fixes around 12 km altitude, well below stratospheric
+// balloon float altitudes, so this must be set for the GPS to work in flight.
+//
+// This is sent to RAM only (no UBX-CFG-CFG save to flash) and re-sent on
+// every boot: it's a small, fast, idempotent write, and avoids wearing out
+// the receiver's flash with a save on every power-up.
+static void configure_gps_airborne_mode(Stream &gpsSerial)
+{
+    // UBX-CFG-NAV5 (class 0x06, id 0x24), 36-byte payload. mask = 0x0001
+    // selects only the dynModel field; all other payload fields are ignored
+    // by the receiver and left zeroed.
+    uint8_t msg[44] = {
+        0xB5, 0x62,                     // sync chars
+        0x06, 0x24,                     // class, id
+        0x24, 0x00,                     // payload length = 36
+        0x01, 0x00,                     // mask = dynModel only
+        GPS_DYNMODEL_AIRBORNE_1G,       // dynModel
+        // remaining payload bytes left at 0
+    };
+
+    // UBX checksum (8-bit Fletcher) over class, id, length, and payload.
+    uint8_t ck_a = 0, ck_b = 0;
+    for (int i = 2; i < 42; i++) {
+        ck_a += msg[i];
+        ck_b += ck_a;
+    }
+    msg[42] = ck_a;
+    msg[43] = ck_b;
+
+    gpsSerial.write(msg, sizeof(msg));
+}
+
 static double   GPSStartLat        = 0.0;
 static double   GPSStartLon        = 0.0;
 static bool     GPSStartCaptured   = false;
@@ -622,6 +659,7 @@ void setup()
 
   GPS_SERIAL.begin(9600);
   GPS_SERIAL.addMemoryForRead(GPS_Serial_Buffer, sizeof(GPS_Serial_Buffer));
+  configure_gps_airborne_mode(GPS_SERIAL);
 
   OPC_SERIAL.begin(9600, SERIAL_8N1_RXINV_TXINV);
 
