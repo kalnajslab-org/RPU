@@ -304,9 +304,10 @@ bool parseOPCString(const String& raw, ROPCData& out)
 // =============================================================================
 // parseTDLASString
 //
-// Parses a 7-field comma-separated TDLAS string into a TDLASData struct.
-// Expected format: mr_avg,bkg,peak,ratio,batt,therm_1,therm_2
-// Example:         1.23,0.45,512.3,0.0023,3.80,22.1,21.8
+// Parses a 12-field comma-separated TDLAS string into a TDLASData struct.
+// Expected format: mixing_ratio,background,peak,ratio,laser_temp,mr_max_ratio,
+//                   status,cluster_idx,cluster_1,cluster_2,cluster_3,cluster_4
+// Example:          1.23,45,512.3,0.23,22.1,4.5,0,2,0.51,0.63,0.04,0.02
 //
 // Returns true on success, false if the field count is wrong or any token is
 // missing (i.e. the string is malformed).
@@ -340,18 +341,18 @@ bool parseTDLASString(const String& raw, TDLASData& out)
     return false;
   }
 
-  out.mr_avg  = atof(tokens[0]);
-  out.bkg     = atof(tokens[1]);
-  out.peak    = atof(tokens[2]);
-  out.ratio   = atof(tokens[3]);
-  out.batt    = atof(tokens[4]);
-  out.max_vmr = atof(tokens[5]);
-  out.laser_t = atof(tokens[6]);
-  out.indx = atof(tokens[7]);
-  out.spec_1 = atof(tokens[8]);
-  out.spec_2 = atof(tokens[9]);
-  out.spec_3 = atof(tokens[10]);
-  out.spec_4 = atof(tokens[11]);
+  out.mixing_ratio = atof(tokens[0]);
+  out.background   = atof(tokens[1]);
+  out.peak         = atof(tokens[2]);
+  out.ratio        = atof(tokens[3]);
+  out.laser_temp   = atof(tokens[4]);
+  out.mr_max_ratio = atof(tokens[5]);
+  out.status       = atoi(tokens[6]);
+  out.cluster_idx  = atoi(tokens[7]);
+  out.cluster_1    = atof(tokens[8]);
+  out.cluster_2    = atof(tokens[9]);
+  out.cluster_3    = atof(tokens[10]);
+  out.cluster_4    = atof(tokens[11]);
 
   return true;
 }
@@ -596,7 +597,7 @@ void setup()
         "GPS_lat,GPS_lng,GPS_alt_m,GPS_satellites,GPS_date,GPS_time,GPS_age_s,"
         "PCBTemp,PumpTemp,BatteryTemp,"
         "ROPC_time,d300,d500,d700,d1000,d2000,d2500,d3000,d5000,OPC_alarm,"
-        "TDLAS_mr_avg,TDLAS_bkg,TDLAS_peak,TDLAS_ratio,TDLAS_batt,TDLAS_therm_1,TDLAS_therm_2,TDLAS_indx,TDLAS_spec_1,TDLAS_spec_2,TDLAS_spec_3,TDLAS_spec_4,"
+        "TDLAS_mixing_ratio,TDLAS_background,TDLAS_peak,TDLAS_ratio,TDLAS_laser_temp,TDLAS_mr_max_ratio,TDLAS_status,TDLAS_cluster_idx,TDLAS_cluster_1,TDLAS_cluster_2,TDLAS_cluster_3,TDLAS_cluster_4,"
         "RS41_frame,RS41_air_temp,RS41_humidity,RS41_hsensor_temp,RS41_pres,"
         "RS41_internal_temp,RS41_module_status,RS41_module_error,RS41_pcb_supply_V,"
         "RS41_lsm303_temp,RS41_pcb_heater_on,"
@@ -743,17 +744,18 @@ void loop()
       if (parseTDLASString(TDLASString, tdlasData))
       {
       
-        Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f max_vmr=%.4f Laser_T=%.2fC Shutdown=%d Bits, Idx=%d, spec_1=%.4f, spec_2=%.4f, spec_3=%.4f, spec_4=%.4f\n",
-        tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
-        tdlasData.batt, tdlasData.max_vmr, tdlasData.laser_t, tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4);
+        Serial.printf("TDLAS: mixing_ratio=%.4f background=%.4f peak=%.4f ratio=%.6f laser_temp=%.2fC mr_max_ratio=%.4f status=%d cluster_idx=%d cluster_1=%.4f cluster_2=%.4f cluster_3=%.4f cluster_4=%.4f\n",
+        tdlasData.mixing_ratio, tdlasData.background, tdlasData.peak, tdlasData.ratio,
+        tdlasData.laser_temp, tdlasData.mr_max_ratio, tdlasData.status, tdlasData.cluster_idx,
+        tdlasData.cluster_1, tdlasData.cluster_2, tdlasData.cluster_3, tdlasData.cluster_4);
 
-      if (!tdlas_cooling_down && tdlasData.laser_t > 30.0f) {
+      if (!tdlas_cooling_down && tdlasData.laser_temp > 30.0f) {
           pinMode(TDLAS_TX_PIN, INPUT);
           pinMode(TDLAS_RX_PIN, INPUT);
           digitalWrite(TDLAS_ENABLE, LOW);
           tdlas_cooling_down = true;
           tdlas_cooldown_timer = 0;
-          Serial.printf("TDLAS laser_t=%.2f exceeds 30 — powering down for 120s\n", tdlasData.laser_t);
+          Serial.printf("TDLAS laser_temp=%.2f exceeds 30 — powering down for 120s\n", tdlasData.laser_temp);
       }
   
 
@@ -837,7 +839,7 @@ void loop()
   //         GPS_lat, GPS_lng, GPS_alt_m, GPS_satellites, GPS_date, GPS_time, GPS_age_s,
   //         PCBTemp, PumpTemp, BatteryTemp,
   //         ROPC_time, d300, d500, d700, d1000, d2000, d2500, d3000, d5000, OPC_alarm,
-  //         TDLAS_mr_avg, TDLAS_bkg, TDLAS_peak, TDLAS_ratio, TDLAS_batt, TDLAS_therm_1, TDLAS_therm_2, TDLAS_indx, TDLAS_spec_1..4,
+  //         TDLAS_mixing_ratio, TDLAS_background, TDLAS_peak, TDLAS_ratio, TDLAS_laser_temp, TDLAS_mr_max_ratio, TDLAS_status, TDLAS_cluster_idx, TDLAS_cluster_1..4,
   //         RS41_frame, RS41_air_temp, RS41_humidity, RS41_hsensor_temp, RS41_pres,
   //         RS41_internal_temp, RS41_module_status, RS41_module_error, RS41_pcb_supply_V,
   //         RS41_lsm303_temp, RS41_pcb_heater_on,
@@ -851,7 +853,7 @@ void loop()
     "%.6f,%.6f,%.2f,%lu,%lu,%lu,%lu,"
     "%.2f,%.2f,%.2f,"
     "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,"
-    "%.4f,%.4f,%.4f,%.6f,%.3f,%.2f,%.2f,%d,%.4f,%.4f,%.4f,%.4f,"
+    "%.4f,%.4f,%.4f,%.6f,%.2f,%.4f,%d,%d,%.4f,%.4f,%.4f,%.4f,"
     "%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%u,%u,%.3f,%.2f,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
     loraSerialNumber, millis(),
     VBat, vin, charge_imon, vmon_5V, I_pump,
@@ -861,9 +863,9 @@ void loop()
     PCBTemp, PumpTemp, BatteryTemp,
     opcData.ROPC_time, opcData.d300, opcData.d500, opcData.d700, opcData.d1000,
     opcData.d2000, opcData.d2500, opcData.d3000, opcData.d5000, opcData.alarm,
-    tdlasData.mr_avg, tdlasData.bkg, tdlasData.peak, tdlasData.ratio,
-    tdlasData.batt, tdlasData.max_vmr, tdlasData.laser_t,
-    tdlasData.indx, tdlasData.spec_1, tdlasData.spec_2, tdlasData.spec_3, tdlasData.spec_4,
+    tdlasData.mixing_ratio, tdlasData.background, tdlasData.peak, tdlasData.ratio,
+    tdlasData.laser_temp, tdlasData.mr_max_ratio,
+    tdlasData.status, tdlasData.cluster_idx, tdlasData.cluster_1, tdlasData.cluster_2, tdlasData.cluster_3, tdlasData.cluster_4,
     sensor_data.valid ? (unsigned long)sensor_data.frame_count  : 0UL,
     sensor_data.valid ? sensor_data.air_temp_degC               : 0.0f,
     sensor_data.valid ? sensor_data.humdity_percent             : 0.0f,
@@ -907,7 +909,7 @@ void loop()
       BatteryTemp,
       PCBTemp,
       sensor_data.valid ? sensor_data.air_temp_degC : 0.0f,
-      tdlasData.mr_avg);
+      tdlasData.mixing_ratio);
 
     LoRa.beginPacket();
     LoRa.print(loraBuf);

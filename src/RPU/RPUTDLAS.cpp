@@ -28,21 +28,21 @@ static bool parseTDLASString(const String& raw, TDLASData& out)
   }
 
   if (getDebugPrintEnabled()) {
-    Serial.printf("TDLAS parse: mr_avg=%s bkg=%s peak=%s ratio=%s batt=%s max_vmr=%s laser_t=%s indx=%s spec_1=%s spec_2=%s spec_3=%s spec_4=%s\n",
+    Serial.printf("TDLAS parse: mixing_ratio=%s background=%s peak=%s ratio=%s laser_temp=%s mr_max_ratio=%s status=%s cluster_idx=%s cluster_1=%s cluster_2=%s cluster_3=%s cluster_4=%s\n",
                   tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5], tokens[6], tokens[7], tokens[8], tokens[9], tokens[10], tokens[11]);
   }
-  out.mr_avg  = atof(tokens[0]);
-  out.bkg     = atof(tokens[1]);
-  out.peak    = atof(tokens[2]);
-  out.ratio   = atof(tokens[3]);
-  out.batt    = atof(tokens[4]);
-  out.max_vmr = atof(tokens[5]);
-  out.laser_t = atof(tokens[6]);
-  out.indx    = atof(tokens[7]);
-  out.spec_1  = atof(tokens[8]);
-  out.spec_2  = atof(tokens[9]);
-  out.spec_3  = atof(tokens[10]);
-  out.spec_4  = atof(tokens[11]);
+  out.mixing_ratio = atof(tokens[0]);
+  out.background   = atof(tokens[1]);
+  out.peak         = atof(tokens[2]);
+  out.ratio        = atof(tokens[3]);
+  out.laser_temp   = atof(tokens[4]);
+  out.mr_max_ratio = atof(tokens[5]);
+  out.status       = atoi(tokens[6]);
+  out.cluster_idx  = atoi(tokens[7]);
+  out.cluster_1    = atof(tokens[8]);
+  out.cluster_2    = atof(tokens[9]);
+  out.cluster_3    = atof(tokens[10]);
+  out.cluster_4    = atof(tokens[11]);
 
   return true;
 }
@@ -65,12 +65,12 @@ bool readTDLAS(TDLASData& data)
   }
 
   if (getDebugPrintEnabled()) {
-    Serial.printf("TDLAS: mr_avg=%.4f bkg=%.4f peak=%.4f ratio=%.6f batt=%.3fV"
-                  " max_vmr=%.4f laser_t=%.2fC Idx=%d"
-                  " spec_1=%.4f spec_2=%.4f spec_3=%.4f spec_4=%.4f\n",
-      data.mr_avg, data.bkg, data.peak, data.ratio,
-      data.batt, data.max_vmr, data.laser_t, data.indx,
-      data.spec_1, data.spec_2, data.spec_3, data.spec_4);
+    Serial.printf("TDLAS: mixing_ratio=%.4f background=%.4f peak=%.4f ratio=%.6f"
+                  " laser_temp=%.2fC mr_max_ratio=%.4f status=%d cluster_idx=%d"
+                  " cluster_1=%.4f cluster_2=%.4f cluster_3=%.4f cluster_4=%.4f\n",
+      data.mixing_ratio, data.background, data.peak, data.ratio,
+      data.laser_temp, data.mr_max_ratio, data.status, data.cluster_idx,
+      data.cluster_1, data.cluster_2, data.cluster_3, data.cluster_4);
   }
 
   buf = "";

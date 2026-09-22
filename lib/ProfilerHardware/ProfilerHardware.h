@@ -100,21 +100,22 @@ struct ROPCData {
 // ---------------------------------------------------------------------------
 // TDLAS parsed data structure
 // Fields match the 12-field CSV output:
-//   mr_avg,bkg,peak,ratio,batt,therm_1,therm_2,indx,spec_1,spec_2,spec_3,spec_4
+//   mixing_ratio,background,peak,ratio,laser_temp,mr_max_ratio,status,
+//   cluster_idx,cluster_1,cluster_2,cluster_3,cluster_4
 // ---------------------------------------------------------------------------
 struct TDLASData {
-  float  mr_avg;  // 1 s average mixing ratio
-  float  bkg;     // background signal
-  float  peak;    // absorption peak
-  float  ratio;   // peak/background ratio
-  float  batt;    // battery voltage [V]
-  float  max_vmr; // maximum volume mixing ratio
-  float  laser_t; // laser temperature [°C]
-  int8_t indx;    // TDLAS index (0-255)
-  float  spec_1;  // TDLAS spectrum value 1
-  float  spec_2;  // TDLAS spectrum value 2
-  float  spec_3;  // TDLAS spectrum value 3
-  float  spec_4;  // TDLAS spectrum value 4
+  float   mixing_ratio; // 1 s average mixing ratio
+  float   background;   // background signal
+  float   peak;         // absorption peak
+  float   ratio;        // peak/background ratio
+  float   laser_temp;   // laser temperature [°C]
+  float   mr_max_ratio; // maximum mixing ratio
+  uint8_t status;       // instrument status code (0-31)
+  uint8_t cluster_idx;  // cluster index (0-15)
+  float   cluster_1;    // cluster value 1
+  float   cluster_2;    // cluster value 2
+  float   cluster_3;    // cluster value 3
+  float   cluster_4;    // cluster value 4
 };
 
 // ---------------------------------------------------------------------------

@@ -438,16 +438,18 @@ static void buildAndSaveRPURecord(const RS41::RS41SensorData_t& sensor_data, boo
   rpu_record.setRs41Humidity(rs41_ok ? sensor_data.humdity_percent   : 0.0f);
   rpu_record.setRs41HSensorT(rs41_ok ? sensor_data.hsensor_temp_degC : 0.0f);
 
-  rpu_record.setTdlasMrAvg(tdlasData.mr_avg);
-  rpu_record.setTdlasBkg(tdlasData.bkg);
+  rpu_record.setTdlasMixingRatio(tdlasData.mixing_ratio);
+  rpu_record.setTdlasBackground(tdlasData.background);
   rpu_record.setTdlasPeak(tdlasData.peak);
   rpu_record.setTdlasRatio(tdlasData.ratio);
-  rpu_record.setTdlasMaxVmr(tdlasData.max_vmr);
-  rpu_record.setTdlasLaserT(tdlasData.laser_t);
-  rpu_record.setTdlasSpec1(tdlasData.spec_1);
-  rpu_record.setTdlasSpec2(tdlasData.spec_2);
-  rpu_record.setTdlasSpec3(tdlasData.spec_3);
-  rpu_record.setTdlasSpec4(tdlasData.spec_4);
+  rpu_record.setTdlasLaserTemp(tdlasData.laser_temp);
+  rpu_record.setTdlasMrMaxRatio(tdlasData.mr_max_ratio);
+  rpu_record.setTdlasStatus(tdlasData.status);
+  rpu_record.setTdlasClusterIdx(tdlasData.cluster_idx);
+  rpu_record.setTdlasCluster1(tdlasData.cluster_1);
+  rpu_record.setTdlasCluster2(tdlasData.cluster_2);
+  rpu_record.setTdlasCluster3(tdlasData.cluster_3);
+  rpu_record.setTdlasCluster4(tdlasData.cluster_4);
 
 
   // Slow / round-robin fields (period = 8)

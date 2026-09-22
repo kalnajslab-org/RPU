@@ -29,8 +29,9 @@ COLUMNS = [
     "GPS_date", "GPS_time", "GPS_age_s",
     "PCBTemp", "PumpTemp", "BatteryTemp",
     "ROPC_time", "d300", "d500", "d700", "d1000", "d2000", "d2500", "d3000", "d5000", "OPC_alarm",
-    "TDLAS_mr_avg", "TDLAS_bkg", "TDLAS_peak", "TDLAS_ratio", "TDLAS_batt",
-    "TDLAS_therm_1", "TDLAS_therm_2",
+    "TDLAS_mixing_ratio", "TDLAS_background", "TDLAS_peak", "TDLAS_ratio",
+    "TDLAS_laser_temp", "TDLAS_mr_max_ratio", "TDLAS_status", "TDLAS_cluster_idx",
+    "TDLAS_cluster_1", "TDLAS_cluster_2", "TDLAS_cluster_3", "TDLAS_cluster_4",
     "RS41_frame", "RS41_air_temp", "RS41_humidity", "RS41_hsensor_temp", "RS41_pres",
     "RS41_internal_temp", "RS41_module_status", "RS41_module_error", "RS41_pcb_supply_V",
     "RS41_lsm303_temp", "RS41_pcb_heater_on",
@@ -58,7 +59,7 @@ PLOT_GROUPS = {
         "title": "Temperatures",
         "subplots": [
             {"cols": ["PCBTemp", "PumpTemp", "BatteryTemp"], "ylabel": "Board Temps (°C)"},
-            {"cols": ["TDLAS_therm_1", "TDLAS_therm_2"],     "ylabel": "TDLAS Temps (°C)"},
+            {"cols": ["TDLAS_laser_temp"],                   "ylabel": "TDLAS Laser Temp (°C)"},
             {"cols": ["RS41_air_temp", "RS41_hsensor_temp", "RS41_internal_temp",
                       "RS41_lsm303_temp"],                   "ylabel": "RS41 Temps (°C)"},
         ],
@@ -85,10 +86,12 @@ PLOT_GROUPS = {
     "tdlas": {
         "title": "TDLAS",
         "subplots": [
-            {"cols": ["TDLAS_mr_avg"],              "ylabel": "Mixing Ratio (avg)"},
-            {"cols": ["TDLAS_bkg", "TDLAS_peak"],   "ylabel": "Background / Peak"},
-            {"cols": ["TDLAS_ratio"],               "ylabel": "Ratio"},
-            {"cols": ["TDLAS_batt"],                "ylabel": "Battery (V)"},
+            {"cols": ["TDLAS_mixing_ratio", "TDLAS_mr_max_ratio"], "ylabel": "Mixing Ratio"},
+            {"cols": ["TDLAS_background", "TDLAS_peak"],           "ylabel": "Background / Peak"},
+            {"cols": ["TDLAS_ratio"],                              "ylabel": "Ratio"},
+            {"cols": ["TDLAS_status", "TDLAS_cluster_idx"],        "ylabel": "Status / Cluster Idx"},
+            {"cols": ["TDLAS_cluster_1", "TDLAS_cluster_2",
+                      "TDLAS_cluster_3", "TDLAS_cluster_4"],       "ylabel": "Cluster Values"},
         ],
     },
     "rs41": {
