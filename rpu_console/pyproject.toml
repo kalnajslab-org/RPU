@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rpu-console"
+dynamic = ["version"]
+description = "Live console display for the Strateole2 RPU debug serial output"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyQt6",
+    "pyserial",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+rpu-console = "rpu_console.app:main"
+
+[tool.setuptools]
+packages = ["rpu_console"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.dynamic]
+version = {attr = "rpu_console.__version__"}
