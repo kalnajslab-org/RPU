@@ -325,10 +325,8 @@ void enterStandby(RPUState& state)
 
 void enterMeasure(RPUState& state)
 {
-  if (sensorsEnabled.opc)   { digitalWrite(OPC_ENABLE,   HIGH); pump.enabled = true; }
-  if (sensorsEnabled.tdlas) { digitalWrite(TDLAS_ENABLE, HIGH); }
-  if (sensorsEnabled.tsen)  { digitalWrite(TSEN_ENABLE,  HIGH); }
-  if (sensorsEnabled.rs41)  { digitalWrite(RS41_ENABLE,  HIGH); }
+  setSensorsPower(sensorsEnabled);
+  pump.enabled = sensorsEnabled.opc;
   MeasureStartMillis = millis();
   GPSStartCaptured   = false;
   measure_timer      = 0;
@@ -649,14 +647,19 @@ static void tickMeasure()
   updateTemperatures(TempBattery, TempPCB, TempPump, bat_t, pcb_t, pump_t);
 
   // --- RS41 Radiosonde -------------------------------------------------------
-  if (rs41_regen_pending) {
-    Serial.println("RS41 regeneration initiated");
-    Serial.println(rs41.recondition().c_str());
-    rs41_regen_pending = false;
+  // Disabled sensors are skipped: their UARTs are stopped, so nothing may
+  // be written to them.
+  RS41::RS41SensorData_t sensor_data;
+  if (sensorsEnabled.rs41) {
+    if (rs41_regen_pending) {
+      Serial.println("RS41 regeneration initiated");
+      Serial.println(rs41.recondition().c_str());
+      rs41_regen_pending = false;
+    }
+    sensor_data = rs41.decoded_sensor_data(false);
   }
-  RS41::RS41SensorData_t sensor_data = rs41.decoded_sensor_data(false);
   bool rs41_ok = sensor_data.valid;
-  if (getDebugPrintEnabled()) {
+  if (sensorsEnabled.rs41 && getDebugPrintEnabled()) {
     Serial.printf("RS41: air_t=%.2fC pres=%.1fmb rh=%.2f%% hsensor_t=%.2fC hdg=%.2fdeg\n",
       sensor_data.air_temp_degC, sensor_data.pres_mb, sensor_data.humdity_percent,
       sensor_data.hsensor_temp_degC, sensor_data.heading_deg);
@@ -667,14 +670,13 @@ static void tickMeasure()
   }
 
   // --- OPC -------------------------------------------------------------------
-  bool gotOPC = readOPC(opcData);
+  if (sensorsEnabled.opc)   { readOPC(opcData); }
 
   // --- TSEN -------------------------------------------------------------------
-  bool gotTSEN = readTSEN(tsenData, tsenRaw);
+  if (sensorsEnabled.tsen)  { readTSEN(tsenData, tsenRaw); }
 
   // --- TDLAS -----------------------------------------------------------------
-
-  bool gotTDLAS = readTDLAS(tdlasData);
+  if (sensorsEnabled.tdlas) { readTDLAS(tdlasData); }
 
   // --- GPS start reference (captured once per measurement session) -----------
   if (!GPSStartCaptured && profiler_gps.location.isValid()) {
@@ -793,11 +795,11 @@ void setup()
   GPS_SERIAL.addMemoryForRead(GPS_Serial_Buffer, sizeof(GPS_Serial_Buffer));
   configure_gps_airborne_mode(GPS_SERIAL);
 
-  OPC_SERIAL.begin(9600, SERIAL_8N1_RXINV_TXINV);
+  OPC_SERIAL.begin(OPC_BAUD, OPC_SERIAL_FORMAT);
 
-  TSEN_SERIAL.begin(9600);
+  TSEN_SERIAL.begin(TSEN_BAUD);
 
-  TDLAS_SERIAL.begin(115200);
+  TDLAS_SERIAL.begin(TDLAS_BAUD);
   TDLAS_SERIAL.addMemoryForRead(TDLAS_Serial_Buffer, sizeof(TDLAS_Serial_Buffer));
   
   DOCK_SERIAL.begin(115200);
