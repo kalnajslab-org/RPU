@@ -10,7 +10,11 @@
 #pragma once
 #include "RPUConfig.h"
 #include "TSensor1WireBus.h"
+#include "RPUTypes.h"
 
+// Powers each sensor on or off per the flags, starting or stopping its UART
+// and floating its pins when off.
+void setSensorsPower(const SensorsEnabled_t& en);
 void powerdownSensors();
 bool batteryHeaterAllowed(float vin, float vbat, float v_crit_batt);
 bool adjustHeaters(float temperature, float setpoint);

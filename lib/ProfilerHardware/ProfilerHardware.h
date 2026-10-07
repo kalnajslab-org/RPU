@@ -67,6 +67,15 @@ This header file defines the hardware interface for the RACHuTS profiler board b
 #define RS41_RX_PIN         25
 #define OPC_TX_PIN          8
 #define OPC_RX_PIN          7
+#define TSEN_TX_PIN         20
+#define TSEN_RX_PIN         21
+
+/* Sensor Serial Settings */
+#define OPC_BAUD            9600
+#define OPC_SERIAL_FORMAT   SERIAL_8N1_RXINV_TXINV
+#define TSEN_BAUD           9600
+#define TDLAS_BAUD          115200
+#define RS41_BAUD           56700   // must match RS41::init() in the RS41 library
 
 /* Analog Channels */
 #define PUMP_IMON           18  // Pump current monitor (A4)
