@@ -42,3 +42,17 @@ def test_sample_file_parses():
     for line in SAMPLE.read_text().splitlines():
         last.update(parse_line(line))
     assert "elapsed_s" in last and "rs41.air_t" in last and "tdlas.status" in last
+
+
+def test_round_robin_keeps_last_values():
+    from rpu_console.parser import drop_stale_round_robin
+    shown = {}
+    for line in SAMPLE.read_text().splitlines():
+        shown.update(drop_stale_round_robin(parse_line(line)))
+    assert shown["v5"] == 5.02 and shown["tsen_i"] == 16 and shown["pump_i"] == 144
+    assert shown["bat_v"] == 12.43 and shown["bat_t"] == 26 and shown["bemf_v"] > 8
+    # idx 0 record: nothing round-robin survives
+    rec = parse_line(next(l for l in SAMPLE.read_text().splitlines()
+                          if l.startswith("{") and '"round_robin_idx":0' in l))
+    out = drop_stale_round_robin(rec)
+    assert "v5" not in out and "bat_v" not in out and "elapsed_s" in out

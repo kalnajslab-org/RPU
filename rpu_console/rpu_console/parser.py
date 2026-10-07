@@ -46,3 +46,22 @@ def parse_line(line):
         if line.startswith(prefix):
             return {f"{ns}.{k}": _value(v) for k, v in KV_RE.findall(line[len(prefix):])}
     return {}
+
+
+# The JSON record rotates through these fields by round_robin_idx. Only the
+# group for the current index is valid; the rest are zero/sentinel filler.
+ROUND_ROBIN_FIELDS = {
+    3: ("bemf_v",),
+    4: ("tsen_i", "opc_i", "pump_i", "tdlas_i", "v5"),
+    5: ("bat_t", "pump_t", "pcb_t", "bat_v"),
+}
+
+
+def drop_stale_round_robin(fields):
+    """Remove round-robin fields that are not current, so the display keeps the last real value."""
+    idx = fields.get("round_robin_idx")
+    if idx is None:
+        return fields
+    current = ROUND_ROBIN_FIELDS.get(idx, ())
+    stale = {k for group in ROUND_ROBIN_FIELDS.values() for k in group} - set(current)
+    return {k: v for k, v in fields.items() if k not in stale}

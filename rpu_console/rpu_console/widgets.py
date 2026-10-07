@@ -1,7 +1,9 @@
 import math
 import time
 
-from PyQt6.QtGui import QFont, QFontDatabase
+from .parser import ROUND_ROBIN_FIELDS
+
+from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import (QCheckBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                              QPlainTextEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
@@ -60,6 +62,10 @@ FIELDS = [
 SENTINELS = {-999.0, -100.0, -20.0}
 NO_DATA = "--"
 
+# Round-robin fields refresh only once per cycle, so they get a longer stale timeout.
+ROUND_ROBIN_KEYS = {k for group in ROUND_ROBIN_FIELDS.values() for k in group}
+ROUND_ROBIN_STALE_FACTOR = 4
+
 
 def format_value(fmt, value):
     if isinstance(value, str):
@@ -100,7 +106,10 @@ class ValuePanel(QScrollArea):
             val = QLabel(NO_DATA)
             val.setFont(mono)
             val.setMinimumWidth(80)
-            grid.addWidget(QLabel(label), row, 0)
+            name = QLabel(f"{label} (r)" if key in ROUND_ROBIN_KEYS else label)
+            if key in ROUND_ROBIN_KEYS:
+                name.setToolTip("Round-robin field: updates once per cycle")
+            grid.addWidget(name, row, 0)
             grid.addWidget(val, row, 1)
             self._labels[key] = (val, fmt)
         col.addStretch(1)
@@ -120,7 +129,8 @@ class ValuePanel(QScrollArea):
         self._pending.clear()
         now = time.monotonic()
         for k, (label, _) in self._labels.items():
-            stale = k not in self._updated or now - self._updated[k] > self.stale_s
+            limit = self.stale_s * (ROUND_ROBIN_STALE_FACTOR if k in ROUND_ROBIN_KEYS else 1)
+            stale = k not in self._updated or now - self._updated[k] > limit
             label.setEnabled(not stale)
 
     def reset(self):

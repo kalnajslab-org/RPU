@@ -1,7 +1,9 @@
 """Line sources: serial port, file playback, synthetic data."""
 import json
 import math
+import queue
 import random
+import time
 
 import serial
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -29,10 +31,32 @@ class LineSource(QThread):
 
 
 class SerialSource(LineSource):
+    command_sent = pyqtSignal(str)
+
+    # Sent right after the port opens. Debug print is enabled separately because
+    # the firmware's 'd' is a toggle: we resend it until it replies "debug print ON".
+    STARTUP_COMMANDS = ("s",)
+    DEBUG_REPLY_TIMEOUT_S = 1.5
+    DEBUG_MAX_ATTEMPTS = 6
+
     def __init__(self, port, baud, parent=None):
         super().__init__(parent)
         self.port = port
         self.baud = baud
+        self._tx = queue.Queue()
+
+    def send(self, command):
+        """Queue a console command; the firmware expects a newline-terminated line."""
+        self._tx.put(command)
+
+    def _drain_tx(self, ser):
+        while True:
+            try:
+                cmd = self._tx.get_nowait()
+            except queue.Empty:
+                return
+            ser.write((cmd + "\n").encode("ascii"))
+            self.command_sent.emit(cmd)
 
     def run(self):
         try:
@@ -41,12 +65,33 @@ class SerialSource(LineSource):
             self.status.emit(f"Open failed: {e}")
             return
         self.status.emit(f"Connected {self.port} @ {self.baud}")
+        for cmd in self.STARTUP_COMMANDS:
+            self.send(cmd)
+        debug_attempts = 0
+        debug_sent_at = 0.0
+        debug_on = False
         try:
             while not self.isInterruptionRequested():
+                if not debug_on and debug_attempts < self.DEBUG_MAX_ATTEMPTS and \
+                        time.monotonic() - debug_sent_at > self.DEBUG_REPLY_TIMEOUT_S:
+                    self.send("d")
+                    debug_attempts += 1
+                    debug_sent_at = time.monotonic()
+                self._drain_tx(ser)
                 raw = ser.readline()
                 if raw:
                     text = raw.decode("utf-8", errors="replace").rstrip("\r\n")
                     self.line_received.emit(text)
+                    if not debug_on and "debug print ON" in text:
+                        debug_on = True
+                        self.status.emit(f"Connected {self.port} @ {self.baud}; debug on")
+                    elif not debug_on and "debug print OFF" in text:
+                        debug_sent_at = 0.0  # toggled off: resend immediately
+                if not debug_on and debug_attempts >= self.DEBUG_MAX_ATTEMPTS and \
+                        time.monotonic() - debug_sent_at > self.DEBUG_REPLY_TIMEOUT_S:
+                    debug_on = True  # stop checking; report the failure once
+                    self.status.emit("Could not confirm debug print ON")
+            self._drain_tx(ser)  # flush anything queued at shutdown (e.g. the final standby)
         except (serial.SerialException, OSError) as e:
             self.status.emit(f"Serial error: {e}")
         finally:

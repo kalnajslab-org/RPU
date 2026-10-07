@@ -2,12 +2,12 @@ import sys
 import time
 
 from PyQt6.QtCore import QByteArray, Qt, QTimer
-from PyQt6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog, QCheckBox,
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QRadioButton, QComboBox, QDoubleSpinBox, QFileDialog, QCheckBox,
                              QLabel, QLineEdit, QMainWindow, QPushButton, QSplitter, QToolBar)
 
 from . import __version__
 from .config import CONFIG_PATH, load_config, save_config
-from .parser import parse_line
+from .parser import drop_stale_round_robin, parse_line
 from .sources import FileSource, SerialSource, SyntheticSource, list_usb_ports
 from .widgets import LogView, ValuePanel
 
@@ -98,6 +98,19 @@ class MainWindow(QMainWindow):
         self.connect_btn.clicked.connect(self._toggle_connection)
         tb.addWidget(self.connect_btn)
 
+        tb.addSeparator()
+        self.standby_btn = QRadioButton("Standby")
+        self.measure_btn = QRadioButton("Measure")
+        self.mode_group = QButtonGroup(self)
+        self.mode_group.addButton(self.standby_btn)
+        self.mode_group.addButton(self.measure_btn)
+        # clicked fires only on user clicks; programmatic setChecked() won't resend.
+        self.standby_btn.clicked.connect(lambda: self._send_command("s"))
+        self.measure_btn.clicked.connect(lambda: self._send_command("m"))
+        tb.addWidget(self.standby_btn)
+        tb.addWidget(self.measure_btn)
+        self._update_command_buttons()
+
     def _on_source_changed(self, *_):
         src = self.source_box.currentText()
         for a in self.serial_widgets:
@@ -154,6 +167,8 @@ class MainWindow(QMainWindow):
         self.source.line_received.connect(self._on_line)
         self.source.status.connect(self.state_label.setText)
         self.source.finished.connect(self._on_source_finished)
+        if kind == "Serial":
+            self.source.command_sent.connect(self._on_command_sent)
         self.panel.reset()
         self.source.start()
         self._set_connected(True)
@@ -161,6 +176,8 @@ class MainWindow(QMainWindow):
     def _disconnect(self):
         if self.source is not None:
             src, self.source = self.source, None
+            if isinstance(src, SerialSource) and src.isRunning():
+                src.send("s")  # leave the RPU in standby when we let go of it
             src.stop()
         self._set_connected(False)
         self.state_label.setText("Disconnected")
@@ -171,7 +188,29 @@ class MainWindow(QMainWindow):
             self.source = None
             self._set_connected(False)
 
+    def _on_command_sent(self, cmd):
+        self.log.add_line(f">>> {cmd}")
+
+    def _send_command(self, cmd):
+        if isinstance(self.source, SerialSource):
+            self.source.send(cmd)
+
+    def _update_command_buttons(self):
+        enabled = isinstance(self.source, SerialSource)
+        self.standby_btn.setEnabled(enabled)
+        self.measure_btn.setEnabled(enabled)
+        if not enabled:
+            self._set_mode(None)
+
+    def _set_mode(self, mode):
+        """Show the RPU mode ("standby", "measure", or None = unknown) in the radio group."""
+        self.mode_group.setExclusive(False)  # needed to be able to clear both
+        self.standby_btn.setChecked(mode == "standby")
+        self.measure_btn.setChecked(mode == "measure")
+        self.mode_group.setExclusive(True)
+
     def _set_connected(self, on):
+        self._update_command_buttons()
         self.connect_btn.setText("Disconnect" if on else "Connect")
         for w in (self.source_box, self.port_box, self.baud_box, self.refresh_btn,
                   self.file_edit, self.browse_btn, self.rate_spin, self.loop_box):
@@ -181,7 +220,11 @@ class MainWindow(QMainWindow):
     def _on_line(self, line):
         self._line_count += 1
         self.log.add_line(line)
-        fields = parse_line(line)
+        if line.startswith("Entering STANDBY"):
+            self._set_mode("standby")
+        elif line.startswith("Entering MEASURE"):
+            self._set_mode("measure")
+        fields = drop_stale_round_robin(parse_line(line))
         if fields:
             self.panel.update_fields(fields)
 
