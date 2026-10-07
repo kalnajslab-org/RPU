@@ -142,6 +142,8 @@ class SyntheticSource(LineSource):
         air_t = 20 + 5 * math.sin(t / 30) + r(-0.1, 0.1)
         pres = 1012.7 - t * 0.05
         hdg = (t * 3.0) % 360
+        rh = 45 + 15 * math.sin(t / 20) + r(-0.5, 0.5)
+        hsensor_t = air_t + 2 + r(-0.1, 0.1)
         lt = 27.4 + r(-0.05, 0.05)
         d300 = int(r(200, 300))
         bins = {k: int(r(0, v)) for k, v in
@@ -152,21 +154,22 @@ class SyntheticSource(LineSource):
             "sats": 0, "gps_age_s": 15, "opc_d300": d300, "opc_d2000": bins["d2000"],
             "tsen_airt": int(3500 + r(-3, 3)), "tsen_pres": 34395, "tsen_ptemp": 33688,
             "rs41_air_t": round(air_t, 2), "rs41_pres": round(pres, 1),
-            "rs41_humidity": -20.0, "rs41_hsensor_t": -100.0,
+            "rs41_humidity": round(rh, 2), "rs41_hsensor_t": round(hsensor_t, 2),
             "tdlas_mixing_ratio": 0.0, "tdlas_background": 155, "tdlas_peak": round(r(0, 2), 1),
             "tdlas_ratio": 0.0, "tdlas_laser_temp": round(lt, 2), "tdlas_mr_max_ratio": 0.0,
             "tdlas_status": 0, "tdlas_cluster_idx": t % 5,
             "tdlas_cluster1": 0.0, "tdlas_cluster2": 0.0, "tdlas_cluster3": 0.0, "tdlas_cluster4": 0.0,
-            "round_robin_idx": t % 8,
+            "round_robin_idx": t % 6,
             "opc_d500": bins["d500"], "opc_d700": bins["d700"], "opc_d1000": bins["d1000"],
             "opc_d3000": bins["d3000"], "opc_d5000": bins["d5000"], "opc_d2500": bins["d2500"],
             "rs41_hdg": round(hdg, 2), "bemf_v": 0.0, "rs41_status": 0,
-            "tsen_i": 16, "opc_i": 88, "pump_i": 148, "tdlas_i": 112,
+            "tsen_i": int(16 + r(-2, 2)), "opc_i": int(88 + r(-4, 4)),
+            "pump_i": int(146 + 6 * math.sin(t / 8) + r(-3, 3)), "tdlas_i": int(106 + r(-10, 10)),
             "v5": round(5.0 + r(-0.03, 0.03), 2), "bat_t": 26, "pump_t": 28, "pcb_t": 28,
             "bat_v": round(12.4 + r(-0.05, 0.05), 2), "heater_stat": 0,
         }
         return [
-            f"RS41: air_t={air_t:.2f}C pres={pres:.1f}mb rh=-999.00% hsensor_t=-999.00C hdg={hdg:.2f}deg",
+            f"RS41: air_t={air_t:.2f}C pres={pres:.1f}mb rh={rh:.2f}% hsensor_t={hsensor_t:.2f}C hdg={hdg:.2f}deg",
             "RS41 flags: hi_t=0 regen_lo=0 ptu=1 flash=0 lo_v=0 uncal=0 no_p=0 boom=0",
             f"ROPC: time={t} d300={d300} " + " ".join(f"{k}={v}" for k, v in bins.items()) + " alarm=0",
             f"TSEN: airt_raw={rec['tsen_airt']} ptemp_raw=8624312 pres_raw=8805256",

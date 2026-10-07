@@ -48,12 +48,16 @@ def parse_line(line):
     return {}
 
 
-# The JSON record rotates through these fields by round_robin_idx. Only the
-# group for the current index is valid; the rest are zero/sentinel filler.
+# The JSON record rotates through these fields by round_robin_idx (period 6).
+# Only the group for the current index is valid; the rest are zero/sentinel
+# filler. Mirrors RPURecord::encode() in the RPUComm library.
 ROUND_ROBIN_FIELDS = {
-    3: ("bemf_v",),
+    0: ("opc_d500", "opc_d700"),
+    1: ("opc_d1000", "opc_d2500"),
+    2: ("opc_d3000", "opc_d5000"),
+    3: ("rs41_hdg", "bemf_v", "rs41_status"),
     4: ("tsen_i", "opc_i", "pump_i", "tdlas_i", "v5"),
-    5: ("bat_t", "pump_t", "pcb_t", "bat_v"),
+    5: ("bat_t", "pump_t", "pcb_t", "bat_v", "heater_stat"),
 }
 
 

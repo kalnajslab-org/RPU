@@ -64,6 +64,7 @@ NO_DATA = "--"
 
 # Round-robin fields refresh only once per cycle, so they get a longer stale timeout.
 ROUND_ROBIN_KEYS = {k for group in ROUND_ROBIN_FIELDS.values() for k in group}
+ROUND_ROBIN_SLOT = {k: slot for slot, group in ROUND_ROBIN_FIELDS.items() for k in group}
 ROUND_ROBIN_STALE_FACTOR = 4
 
 
@@ -106,9 +107,11 @@ class ValuePanel(QScrollArea):
             val = QLabel(NO_DATA)
             val.setFont(mono)
             val.setMinimumWidth(80)
-            name = QLabel(f"{label} (r)" if key in ROUND_ROBIN_KEYS else label)
-            if key in ROUND_ROBIN_KEYS:
-                name.setToolTip("Round-robin field: updates once per cycle")
+            name = QLabel(label)
+            if key in ROUND_ROBIN_SLOT:
+                slot = ROUND_ROBIN_SLOT[key]
+                name.setText(f"{label} (r{slot})")
+                name.setToolTip(f"Round-robin slot {slot}: updates once per cycle")
             grid.addWidget(name, row, 0)
             grid.addWidget(val, row, 1)
             self._labels[key] = (val, fmt)
