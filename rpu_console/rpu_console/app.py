@@ -1,7 +1,9 @@
 import sys
 import time
+from pathlib import Path
 
 from PyQt6.QtCore import QByteArray, Qt, QTimer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QRadioButton, QComboBox, QDoubleSpinBox, QFileDialog, QCheckBox,
                              QLabel, QLineEdit, QMainWindow, QPushButton, QSplitter, QToolBar)
 
@@ -14,6 +16,8 @@ from .widgets import LogView, ValuePanel
 BAUDS = ["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"]
 SOURCES = ["Serial", "File", "Synthetic"]
 FLUSH_MS = 200
+APP_NAME = "RPU Console"
+ICON_PATH = Path(__file__).resolve().parent / "resources" / "icon.png"
 
 
 class MainWindow(QMainWindow):
@@ -270,8 +274,23 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
 
+def _set_macos_app_name(name):
+    """Make the Dock/menu bar say `name` instead of "Python" (needs pyobjc; optional)."""
+    if sys.platform != "darwin":
+        return
+    try:
+        from Foundation import NSBundle
+        info = NSBundle.mainBundle().localizedInfoDictionary() or NSBundle.mainBundle().infoDictionary()
+        info["CFBundleName"] = name
+    except Exception:
+        pass  # cosmetic only
+
+
 def main():
+    _set_macos_app_name(APP_NAME)  # must happen before QApplication is created
     app = QApplication(sys.argv)
+    app.setApplicationName(APP_NAME)
+    app.setWindowIcon(QIcon(str(ICON_PATH)))  # also sets the Dock icon on macOS
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
