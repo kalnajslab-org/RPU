@@ -734,7 +734,7 @@ static void tickError()
 void setup()
 {
   pinMode(PULSE_LED,       OUTPUT);
-  pinMode(CHARGER_SHTDWN,  INPUT);   // Open-drain; do not drive unless needed
+  pinMode(CHARGER_SHTDWN,  OUTPUT);  // Held LOW to force the charger on
   pinMode(OPC_ENABLE,      OUTPUT);
   pinMode(TDLAS_ENABLE,    OUTPUT);
   pinMode(TSEN_ENABLE,     OUTPUT);
@@ -747,6 +747,7 @@ void setup()
   pinMode(SWITCH_IMON,     INPUT);
   pinMode(PUMP_PWM,        OUTPUT);
 
+  digitalWrite(CHARGER_SHTDWN, LOW);
   digitalWrite(OPC_ENABLE,     HIGH);
   digitalWrite(TDLAS_ENABLE,   HIGH);
   digitalWrite(BATTERY_HEATER, LOW);
