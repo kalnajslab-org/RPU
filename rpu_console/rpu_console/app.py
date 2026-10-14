@@ -17,6 +17,7 @@ BAUDS = ["9600", "19200", "38400", "57600", "115200", "230400", "460800", "92160
 SOURCES = ["Serial", "File", "Synthetic"]
 FLUSH_MS = 200
 APP_NAME = "RPU Console"
+STANDBY_STATUS_INTERVAL_S = 60  # firmware console status report interval set on entering standby
 ICON_PATH = Path(__file__).resolve().parent / "resources" / "icon.png"
 
 
@@ -226,6 +227,7 @@ class MainWindow(QMainWindow):
         self.log.add_line(line)
         if line.startswith("Entering STANDBY"):
             self._set_mode("standby")
+            self._send_command(f"c {STANDBY_STATUS_INTERVAL_S}")
         elif line.startswith("Entering MEASURE"):
             self._set_mode("measure")
         fields = drop_stale_round_robin(parse_line(line))
