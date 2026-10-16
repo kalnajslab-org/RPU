@@ -1,4 +1,4 @@
-# rpu_console: design and status (v0.3.0)
+# rpu_console: design and status (v0.4.0)
 
 This began as the implementation plan and has been updated to describe what is built.
 
@@ -61,7 +61,7 @@ rpu_console/
   `drop_stale_round_robin()` removes fields that are not current, so the display keeps the last real value instead of the zero filler. These labels are marked `(rN)` with a tooltip, and they use a longer grey-out timeout (4x the normal 5 s) because they refresh only about every 6 s.
 - **Display values.** `nan` and the "no data" sentinels (-999, -100, -20) show as `--`. Labels flush from a 200 ms timer, not per line, and go grey when stale.
 - **Main window** (`app.py`, `widgets.py`).
-  - Toolbar: source selector (Serial/File/Synthetic), port combo with Refresh, baud combo, file path with Browse, replay rate, Loop, Connect/Disconnect, and the Standby/Measure radio group.
+  - Toolbar: source selector (Serial/File/Synthetic), port combo with Refresh, baud combo, file path with Browse, replay rate, Loop, Connect/Disconnect, the Standby/Measure radio group, and the Pump On/Off radio group.
   - Left pane: grouped value labels from a `FIELDS` table `(group, label, key, format)`, so adding a field takes one line.
   - Right pane: read-only monospace log (max 5000 lines) with Pause and Clear. It follows new lines unless the user scrolls up.
   - Status bar: connection state, lines/s, and the config file path.
@@ -69,6 +69,7 @@ rpu_console/
   - On connect: send `s` (standby), then send `d` until the firmware replies `debug print ON`. `d` is a toggle, so it is resent after an `OFF` reply, or after 1.5 s with no reply, up to 6 tries; the status bar reports a failure.
   - On disconnect or window close: send `s`.
   - Standby/Measure radio buttons send `s` / `m` (plain `m`, so the firmware's current duration and rate apply). The radio group follows the firmware's `Entering STANDBY` / `Entering MEASURE` lines and shows neither when the mode is unknown. The buttons are enabled only for a serial connection. Whenever the firmware reports `Entering STANDBY`, the app sends `c 60` so the console status report arrives every 60 s.
+  - Pump On/Off radio buttons control the pump with the firmware's `p` command. `p` is a toggle, so the app sends it only when the known state differs from the request; if the `pump ON` / `pump OFF` reply shows the wrong state (because the state was unknown or out of date), it sends `p` once more. The radio group follows the `pump ON/OFF` replies, `Entering STANDBY` (pump off), and the `Sensors enabled: OPC=n` line printed on entering measure (pump = OPC). The buttons are enabled only for a serial connection in MEASURE, because the firmware runs the pump controller only in that state.
   - Sent commands are echoed in the log as `>>> m`.
 - **Config** (`config.py`). JSON at `~/.rpu_console.json` (the path is shown in the status bar). It stores: source, port, baud, file path, replay rate, loop flag, window geometry, splitter sizes, max log lines, stale timeout. Missing or corrupt files fall back to defaults. The baud default is 115200, because the firmware's debug baud is not defined in this repo.
 - **Icon and name.** `resources/icon.png` (a cylinder with a lightning bolt and a tether string, drawn by `tools/make_icon.py`) is set with `setWindowIcon`, which also sets the macOS Dock icon. The Dock name "RPU Console" is set through `pyobjc` before the `QApplication` is created; it is cosmetic and is skipped silently if `pyobjc` is missing.

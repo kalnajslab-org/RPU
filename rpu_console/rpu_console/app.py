@@ -1,3 +1,4 @@
+import re
 import sys
 import time
 from pathlib import Path
@@ -18,6 +19,8 @@ SOURCES = ["Serial", "File", "Synthetic"]
 FLUSH_MS = 200
 APP_NAME = "RPU Console"
 STANDBY_STATUS_INTERVAL_S = 60  # firmware console status report interval set on entering standby
+PUMP_REPLY_RE = re.compile(r"pump (ON|OFF)\b")
+MEASURE_OPC_RE = re.compile(r"Sensors enabled: OPC=(\d)")
 ICON_PATH = Path(__file__).resolve().parent / "resources" / "icon.png"
 
 
@@ -114,6 +117,21 @@ class MainWindow(QMainWindow):
         self.measure_btn.clicked.connect(lambda: self._send_command("m"))
         tb.addWidget(self.standby_btn)
         tb.addWidget(self.measure_btn)
+
+        tb.addSeparator()
+        tb.addWidget(QLabel(" Pump "))
+        self.pump_on_btn = QRadioButton("On")
+        self.pump_off_btn = QRadioButton("Off")
+        self.pump_group = QButtonGroup(self)
+        self.pump_group.addButton(self.pump_on_btn)
+        self.pump_group.addButton(self.pump_off_btn)
+        self.pump_on_btn.clicked.connect(lambda: self._request_pump(True))
+        self.pump_off_btn.clicked.connect(lambda: self._request_pump(False))
+        tb.addWidget(self.pump_on_btn)
+        tb.addWidget(self.pump_off_btn)
+        self._mode = None
+        self._pump_on = None     # firmware pump state; None = unknown
+        self._pump_wanted = None  # state the user asked for, until the firmware confirms it
         self._update_command_buttons()
 
     def _on_source_changed(self, *_):
@@ -206,13 +224,45 @@ class MainWindow(QMainWindow):
         self.measure_btn.setEnabled(enabled)
         if not enabled:
             self._set_mode(None)
+            self._set_pump(None)
+        # The firmware only runs the pump controller in MEASURE.
+        pump_enabled = enabled and self._mode == "measure"
+        self.pump_on_btn.setEnabled(pump_enabled)
+        self.pump_off_btn.setEnabled(pump_enabled)
 
     def _set_mode(self, mode):
         """Show the RPU mode ("standby", "measure", or None = unknown) in the radio group."""
+        changed = mode != self._mode
+        self._mode = mode
         self.mode_group.setExclusive(False)  # needed to be able to clear both
         self.standby_btn.setChecked(mode == "standby")
         self.measure_btn.setChecked(mode == "measure")
         self.mode_group.setExclusive(True)
+        if changed:
+            self._update_command_buttons()
+
+    def _request_pump(self, on):
+        """`p` toggles the pump, so only send it when the known state differs.
+        The reply is checked in _on_pump_reply and `p` is resent once if needed."""
+        self._pump_wanted = on
+        if self._pump_on != on:
+            self._send_command("p")
+        else:
+            self._pump_wanted = None
+
+    def _on_pump_reply(self, on):
+        wanted, self._pump_wanted = self._pump_wanted, None
+        self._set_pump(on)
+        if wanted is not None and wanted != on:
+            self._send_command("p")  # state was unknown or stale; toggle back
+
+    def _set_pump(self, on):
+        """Show the pump state (True, False, or None = unknown) in the radio group."""
+        self._pump_on = on
+        self.pump_group.setExclusive(False)
+        self.pump_on_btn.setChecked(on is True)
+        self.pump_off_btn.setChecked(on is False)
+        self.pump_group.setExclusive(True)
 
     def _set_connected(self, on):
         self._update_command_buttons()
@@ -227,9 +277,14 @@ class MainWindow(QMainWindow):
         self.log.add_line(line)
         if line.startswith("Entering STANDBY"):
             self._set_mode("standby")
+            self._set_pump(False)  # enterStandby() turns the pump off without printing it
             self._send_command(f"c {STANDBY_STATUS_INTERVAL_S}")
         elif line.startswith("Entering MEASURE"):
             self._set_mode("measure")
+        elif m := MEASURE_OPC_RE.match(line):
+            self._set_pump(m.group(1) != "0")  # enterMeasure() sets the pump from the OPC flag
+        elif m := PUMP_REPLY_RE.match(line):
+            self._on_pump_reply(m.group(1) == "ON")
         fields = drop_stale_round_robin(parse_line(line))
         if fields:
             self.panel.update_fields(fields)
