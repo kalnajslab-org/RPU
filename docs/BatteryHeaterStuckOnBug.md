@@ -166,8 +166,9 @@ whenever the battery is healthy, docked or not:
 Trade-off: undocked in STANDBY, the heater now runs off the battery with
 nothing recharging it, which can pull the battery down to `V_CRIT_BATT` and
 leave less energy for a profile. `V_CRIT_BATT` is the only battery protection
-for the heater, and `RPU_SET_V_CRIT_BATT` changes it only in RAM (it reverts
-to 10.0 V on reboot).
+for the heater, and it is fixed at `CFG_V_CRIT_BATT` (10.0 V). The RPU has an
+`RPU_SET_V_CRIT_BATT` handler, but RACHuTS has no TC for it and never sends
+it, so changing it requires a reflash.
 
 Not changed: `bat_v_low` (`V_LOW_BATT`) is still never read, so the ops doc's
 "switch to STANDBY if undocked below V_LOW_BATT" is not implemented. Heater
@@ -182,10 +183,13 @@ duty ticks are still counted only in STANDBY.
   still behave sensibly when the heater is disallowed.
 - Undocked heating: in STANDBY with V_IN removed and the battery below the
   setpoint, the heater should come on and cycle on the thermostat.
-- Latch: lower the battery supply (or raise V_CRIT_BATT with
-  `RPU_SET_V_CRIT_BATT`) until `bat_v < V_CRIT_BATT`. The heater should turn
-  off and stay off after `bat_v` recovers, until V_IN > 13 V is applied. Check
-  in both STANDBY and MEASURE.
+- Latch: get `bat_v` below `V_CRIT_BATT`, either by replacing the battery
+  with a variable bench supply and lowering it below 10 V, or with a temporary
+  test build that sets `CFG_V_CRIT_BATT` just below the battery's present
+  voltage (e.g. 12.5 V; restore it before flight). V_CRIT_BATT cannot be
+  changed at run time with the existing tools. The heater should turn off and
+  stay off after `bat_v` recovers, until V_IN > 13 V is applied. Check in both
+  STANDBY and MEASURE.
 
 ## Caveats
 

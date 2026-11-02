@@ -38,7 +38,9 @@ Outside of the profiler states, there are several global commands that the profi
 
 - The profiler needs to send any data from the buffer on a `SEND_RECORDS` command. The profiler should send the next 8 kB chunk of data (~190 lines), or whatever data is remaining in the buffer, whichever is smaller.
 - If no data is available to send after a `SEND_RECORDS` command then a `NO_MORE_RECORDS` response should be sent.
-- The `BATT_T_SET`, `V_LOW_BATT`, `V_CRIT_BATT`, `STATUS_RATE`, and `SET_TIME` can all be configured via TC.
+- The `STATUS_RATE` and `SET_TIME` can be configured via TC.
+- `BATT_T_SET` is set with TC 182 (RPUBATTEMP), which only stores the value in the RACHuTS EEPROM. It reaches the profiler with the next go-standby or go-measure (TC 184, TC 185, TC 156, or a profile), so follow TC 182 with TC 184 to apply it. The profiler keeps it in RAM only and reverts to 20.0 C (`CFG_BATTERY_T_SETPOINT`) on reboot until the next go-standby or go-measure.
+- `V_LOW_BATT` and `V_CRIT_BATT` cannot currently be set via TC. The profiler has `RPU_SET_V_LOW_BATT` / `RPU_SET_V_CRIT_BATT` handlers, but RACHuTS has no TC for them and never sends them. They are fixed at their compile-time defaults (`CFG_V_LOW_BATT` = 11.0 V, `CFG_V_CRIT_BATT` = 10.0 V) and changing them requires a reflash.
 - The profiler should send the current status on a `SEND_STATUS` request. This can be used to check for a successful dock, or to inquire as to profiler status from the ground via a TC.
 
 ---
