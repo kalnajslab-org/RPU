@@ -36,9 +36,16 @@ void powerdownSensors()
   analogWrite(PUMP_PWM,        0);
 }
 
+// The heater is allowed whenever the battery is at or above V_CRIT_BATT, docked
+// or not. Dropping below V_CRIT_BATT latches the heater off until V_IN shows the
+// profiler is docked (charging), so the heater's load cannot chatter it on and
+// off around the threshold.
 bool batteryHeaterAllowed(float vin, float vbat, float v_crit_batt)
 {
-  return (vin > CFG_V_DOCKED) && (vbat >= v_crit_batt);
+  static bool crit_latched = false;
+  if (vbat < v_crit_batt)  crit_latched = true;
+  if (vin > CFG_V_DOCKED)  crit_latched = false;
+  return !crit_latched;
 }
 
 // Bang-bang controller with 0.5°C hysteresis. Returns true if heater is ON.
@@ -65,5 +72,7 @@ void manageHeater(float bat_temp, float setpoint,
     if (adjustHeaters(bat_temp, setpoint)) {
       on_ticks++;
     }
+  } else {
+    digitalWrite(BATTERY_HEATER, LOW);
   }
 }

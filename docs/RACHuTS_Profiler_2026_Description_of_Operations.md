@@ -12,11 +12,12 @@ This is the default state, and the Profiler returns to this state on startup and
 
 - All sensors that can be powered down are powered down.
 - Power consumption is minimized.
-- If docked (V_IN > 13V) then the charger is on and battery heater is enabled.
+- If docked (V_IN > 13V) then the charger is on.
+- The battery heater is enabled docked or undocked, unless disabled by the V_CRIT_BATT cutoff below.
 - Battery thermal management is on at the saved setpoint.
 - Profiler sends status messages every 30 min (configurable) via LoRa and over the docking connector containing: Battery Voltage, Battery Temperature, Charge Current, PCB Temperature, Heater Duty Cycle, GPS Lat, Long, Alt, # Sats. These status messages are packaged into RACHuTS reports and sent via TM.
 - The Profiler responds to commands, particularly to send any available data.
-- If the battery voltage drops below V_CRIT_BATT then the heater is disabled (until V_IN > 13.0V).
+- If the battery voltage drops below V_CRIT_BATT then the heater is disabled (until V_IN > 13.0V). This applies in all states, including MEASURE.
 
 ### MEASURE
 

@@ -708,7 +708,12 @@ static void tickMeasure()
 
   // --- Control loops ---------------------------------------------------------
   adjustPump(pump, bat_v);
-  bool heater_on = adjustHeaters(bat_t, bat_t_setpoint);
+  bool heater_on = false;
+  if (batteryHeaterAllowed(vin, bat_v, bat_v_crit)) {
+    heater_on = adjustHeaters(bat_t, bat_t_setpoint);
+  } else {
+    digitalWrite(BATTERY_HEATER, LOW);
+  }
 
   // --- Build and save RPURecord (gated by SaveRateSecs) -----------------------
   if (save_timer >= save_interval_ms) {
